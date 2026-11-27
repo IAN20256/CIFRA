@@ -2,13 +2,8 @@ name = "cifra"
 main = "worker.js"
 compatibility_date = "2025-09-01"
 
-# index.html se empaqueta dentro del Worker: el mismo Worker sirve la app y la API.
-# Si cambias index.html, vuelve a correr "npx wrangler deploy".
-# index.html is bundled into the Worker, which serves both the app and the API.
-[[rules]]
-type = "Text"
-globs = ["**/*.html"]
-fallthrough = true
+# Este Worker es solo el servidor (API). La app (index.html) va en GitHub Pages.
+# The tables are created automatically on first use.
 
 [[d1_databases]]
 binding = "DB"

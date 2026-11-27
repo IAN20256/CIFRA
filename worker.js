@@ -11,9 +11,8 @@
  * The server never sees plaintext messages or passwords. See README.md.
  */
 
-// La app completa va empaquetada dentro del Worker como texto (regla "Text" en wrangler.toml).
-// The whole app is bundled into the Worker as text ("Text" rule in wrangler.toml).
-import APP_HTML from './index.html';
+// Un solo archivo: se puede pegar tal cual en el panel de Cloudflare (Edit code).
+// Single file: can be pasted as-is into the Cloudflare dashboard editor.
 
 const CODE_MIN = 10000, CODE_SPAN = 90000;   // códigos de usuario de 5 dígitos
 const SESSION_IDLE = 24 * 3600e3;            // la sesión caduca tras 24 h sin uso
@@ -24,16 +23,6 @@ const IP_MAX = 40, IP_WIN = 15 * 60e3;       // y 40 por IP
 const JOIN_MAX = 15, JOIN_WIN = 10 * 60e3;   // intentos fallidos de unirse a grupos
 const SIGNUP_MAX = 20, SIGNUP_WIN = 3600e3;  // cuentas nuevas por IP por hora
 const PAGE = 50;
-
-const HTML_HEADERS = {
-  'Content-Type': 'text/html; charset=utf-8',
-  'Cache-Control': 'no-cache',
-  'X-Content-Type-Options': 'nosniff',
-  'Referrer-Policy': 'no-referrer',
-  'X-Frame-Options': 'DENY',
-  'Content-Security-Policy': "frame-ancestors 'none'",
-  'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
-};
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -46,16 +35,15 @@ export default {
   async fetch(req, env, ctx) {
     const url = new URL(req.url);
     if (!url.pathname.startsWith('/api/')) {
-      if ((req.method === 'GET' || req.method === 'HEAD') && (url.pathname === '/' || url.pathname === '/index.html')) {
-        return new Response(req.method === 'HEAD' ? null : APP_HTML, { headers: HTML_HEADERS });
-      }
-      return new Response('Cifra ✓', { headers: { 'Content-Type': 'text/plain; charset=utf-8', ...CORS } });
+      if (url.pathname === '/') return statusPage(env, url);
+      return new Response('Not found', { status: 404, headers: { 'Content-Type': 'text/plain; charset=utf-8', ...CORS } });
     }
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
     const c = { req, env, ctx, url, now: Date.now(), ip: req.headers.get('CF-Connecting-IP') || 'local' };
     try {
       if (!env.DB) fail(500, 'no_database');
       if (!env.PEPPER || String(env.PEPPER).length < 16) fail(500, 'server_misconfigured');
+      await ensureSchema(env);
       const route = ROUTES[req.method + ' ' + url.pathname];
       if (!route) fail(404, 'not_found');
       if (route.auth) {
@@ -73,9 +61,73 @@ export default {
 
   // Cron (wrangler.toml): borra mensajes temporales vencidos, sesiones viejas y salas vacías.
   async scheduled(_event, env) {
+    if (!env.DB) return;
+    await ensureSchema(env);
     await cleanup(env, Date.now());
   },
 };
+
+/* ───────────────────────── base de datos / database ─────────────────────────
+   Las tablas se crean solas la primera vez: no hay que correr SQL a mano.
+   Tables are created automatically on first use: no SQL to run by hand.
+   users     código de 5 dígitos, apodo, sal, verificador HMAC, llave pública, llave privada cifrada
+   sessions  hash del token de sesión            rooms    chats privados (d:...) y grupos (g:<hash>)
+   members   quién está en cada sala (+ llave del grupo cifrada para cada miembro)
+   messages  solo texto cifrado                  opens    quién abrió cada mensaje de "ver una vez"
+   blocks    códigos bloqueados                  attempts límite de intentos     counters  cursor de sync */
+const SCHEMA = [
+  `CREATE TABLE IF NOT EXISTS users (code TEXT PRIMARY KEY, name TEXT NOT NULL DEFAULT '', salt TEXT NOT NULL,
+     iter INTEGER NOT NULL, verifier TEXT NOT NULL, pub TEXT NOT NULL, enc_priv TEXT NOT NULL,
+     deleted INTEGER NOT NULL DEFAULT 0, at INTEGER NOT NULL)`,
+  `CREATE TABLE IF NOT EXISTS sessions (token TEXT PRIMARY KEY, code TEXT NOT NULL, at INTEGER NOT NULL, last_seen INTEGER NOT NULL)`,
+  `CREATE INDEX IF NOT EXISTS idx_sessions_code ON sessions(code)`,
+  `CREATE TABLE IF NOT EXISTS rooms (id TEXT PRIMARY KEY, kind TEXT NOT NULL, meta TEXT NOT NULL DEFAULT '',
+     ttl INTEGER NOT NULL DEFAULT 0, stealth INTEGER NOT NULL DEFAULT 0, created_by TEXT NOT NULL, at INTEGER NOT NULL)`,
+  `CREATE TABLE IF NOT EXISTS members (room TEXT NOT NULL, code TEXT NOT NULL, secret TEXT NOT NULL DEFAULT '',
+     read_id INTEGER NOT NULL DEFAULT 0, cleared INTEGER NOT NULL DEFAULT 0, at INTEGER NOT NULL, PRIMARY KEY (room, code))`,
+  `CREATE INDEX IF NOT EXISTS idx_members_code ON members(code)`,
+  `CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY AUTOINCREMENT, rev INTEGER NOT NULL, room TEXT NOT NULL,
+     sender TEXT NOT NULL, kind TEXT NOT NULL, body TEXT NOT NULL DEFAULT '', at INTEGER NOT NULL, exp INTEGER)`,
+  `CREATE INDEX IF NOT EXISTS idx_messages_room ON messages(room, id)`,
+  `CREATE INDEX IF NOT EXISTS idx_messages_rev ON messages(rev)`,
+  `CREATE INDEX IF NOT EXISTS idx_messages_exp ON messages(exp) WHERE exp IS NOT NULL`,
+  `CREATE TABLE IF NOT EXISTS opens (msg INTEGER NOT NULL, code TEXT NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (msg, code))`,
+  `CREATE TABLE IF NOT EXISTS blocks (code TEXT NOT NULL, blocked TEXT NOT NULL, PRIMARY KEY (code, blocked))`,
+  `CREATE TABLE IF NOT EXISTS attempts (key TEXT PRIMARY KEY, n INTEGER NOT NULL, reset_at INTEGER NOT NULL)`,
+  `CREATE TABLE IF NOT EXISTS counters (k TEXT PRIMARY KEY, v INTEGER NOT NULL)`,
+  `INSERT OR IGNORE INTO counters (k, v) VALUES ('rev', 0)`,
+];
+let schemaReady = false;
+async function ensureSchema(env) {
+  if (schemaReady) return;
+  const t = await env.DB.prepare("SELECT 1 AS ok FROM sqlite_master WHERE type = 'table' AND name = 'counters'").first();
+  if (!t) await env.DB.batch(SCHEMA.map(sql => env.DB.prepare(sql)));
+  schemaReady = true;
+}
+
+// Abre la URL del Worker en el navegador para revisar la configuración.
+// Open the Worker URL in a browser to check the setup.
+async function statusPage(env, url) {
+  let db = '✗ falta: agrega un binding de D1 llamado DB / add a D1 binding named DB';
+  if (env.DB) {
+    try { await ensureSchema(env); db = '✓'; } catch (e) { db = '✗ ' + String((e && e.message) || e).slice(0, 200); }
+  }
+  const pepper = env.PEPPER && String(env.PEPPER).length >= 16 ? '✓' : '✗ falta: agrega el secreto PEPPER (16+ caracteres) / add the PEPPER secret';
+  const hubLine = env.HUB ? '✓ WebSocket' : '— opcional: la app revisa cada 4 s / optional: the app polls every 4 s';
+  const ok = db === '✓' && pepper === '✓';
+  const body = [
+    ok ? 'Cifra ✓ servidor listo / server ready' : 'Cifra · falta configurar / setup incomplete',
+    '',
+    'Base de datos / database (DB):  ' + db,
+    'Secreto / secret (PEPPER):      ' + pepper,
+    'Tiempo real / real-time (HUB):  ' + hubLine,
+    '',
+    'Pon esta URL en SERVER_URL dentro de index.html / put this URL in SERVER_URL in index.html:',
+    url.origin,
+    '',
+  ].join('\n');
+  return new Response(body, { headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store', ...CORS } });
+}
 
 const ROUTES = {
   'GET /api/health': { fn: c => json({ ok: true, realtime: !!c.env.HUB }) },

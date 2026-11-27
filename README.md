@@ -33,55 +33,54 @@ Cifra es una app de chats cifrados de extremo a extremo. No pide teléfono ni co
 
 | Archivo | Qué es |
 |---|---|
-| `index.html` | La app completa: HTML + CSS + JS en un solo archivo, sin frameworks |
-| `worker.js` | El servidor (Cloudflare Worker + D1 + Durable Object) |
-| `schema.sql` | Tablas de la base de datos D1 |
-| `wrangler.toml` | Configuración de Cloudflare |
+| `index.html` | La app completa: HTML + CSS + JS en un solo archivo, sin frameworks. Va en GitHub Pages |
+| `worker.js` | El servidor: Cloudflare Worker + D1 (+ Durable Object para tiempo real). Crea sus tablas solo |
+| `wrangler.toml` | Configuración para publicar con wrangler |
 
-## Publicarla (unos 10 minutos, plan gratis de Cloudflare)
+## Publicarla (plan gratis de Cloudflare)
 
-Necesitas Node.js. Dentro de la carpeta `cifra`:
+### 1 · El servidor, desde el celular (panel de Cloudflare)
+
+1. **Workers & Pages → Create → Worker** → nómbralo `cifra` → **Deploy** → **Edit code**. Borra el ejemplo, pega todo `worker.js` y presiona **Deploy**.
+2. **Storage & Databases → D1 → Create database** → `cifra-db`.
+3. En tu Worker: **Settings → Bindings → Add → D1 database** → nombre de la variable `DB` → `cifra-db`.
+4. **Settings → Variables and Secrets → Add** → tipo **Secret** → nombre `PEPPER` → un texto largo y aleatorio (40 caracteres o más). Guárdalo y **no lo cambies después**: si cambia, nadie podrá entrar a su cuenta.
+5. (Opcional) **Settings → Triggers → Cron Triggers** → `*/15 * * * *`, para borrar a tiempo los mensajes temporales vencidos.
+6. Abre la URL de tu Worker (`https://cifra.<tu-subdominio>.workers.dev`). Debe decir **Cifra ✓ servidor listo** y mostrarte la URL que va en `SERVER_URL`.
+
+Así no hay WebSocket (el panel no puede crear el Durable Object), entonces la app revisa mensajes nuevos cada 4 segundos. Funciona igual, con un poco de retraso.
+
+### 1 (alternativa) · El servidor con wrangler, desde una computadora, con tiempo real
 
 ```bash
 npx wrangler login
-npx wrangler d1 create cifra-db
-```
-
-Copia el `database_id` que aparece y pégalo en `wrangler.toml`, donde dice `PEGA-AQUI-EL-ID-DE-TU-D1`.
-
-```bash
-npx wrangler d1 execute cifra-db --remote --file=schema.sql
+npx wrangler d1 create cifra-db     # pega el database_id en wrangler.toml
 npx wrangler secret put PEPPER
-```
-
-Para `PEPPER` pega un texto largo y aleatorio (mínimo 16 caracteres, mejor 40 o más). Guárdalo en un lugar seguro y **no lo cambies después**: si cambia, nadie podrá entrar a su cuenta.
-
-```bash
 npx wrangler deploy
 ```
 
-Listo: la app queda en `https://cifra.<tu-subdominio>.workers.dev`. El mismo Worker sirve la app y la API (`index.html` va empaquetado dentro, así que si lo cambias vuelve a correr `npx wrangler deploy`).
+Esto además crea el Durable Object (mensajes instantáneos por WebSocket) y la limpieza cada 15 minutos.
 
-### También en GitHub Pages
+### 2 · La app en GitHub Pages
 
 1. En el repo: **Settings → Pages → Deploy from a branch → `main` / `(root)`**.
-2. En `index.html` cambia esta línea (arriba del `<script>`) y haz push:
+2. En `index.html` cambia esta línea (al inicio del `<script>`) por la URL de tu Worker y haz push:
 
 ```js
 const SERVER_URL = 'https://cifra.<tu-subdominio>.workers.dev';
 ```
 
-La app queda en `https://ian20256.github.io/CIFRA/` y usa tu Worker como servidor (ya responde con CORS). Mientras `SERVER_URL` esté vacío, la app avisa que falta configurarlo.
+La app queda en `https://ian20256.github.io/CIFRA/`. Mientras `SERVER_URL` esté vacío, la app avisa que falta configurarlo.
 
 ### Probar en tu compu
 
+Pon `SERVER_URL = 'http://localhost:8787'` en `index.html` y:
+
 ```bash
 echo 'PEPPER="cualquier-texto-largo-para-pruebas"' > .dev.vars
-npx wrangler d1 execute cifra-db --local --file=schema.sql
-npx wrangler dev
+npx wrangler dev          # el servidor, en http://localhost:8787
+npx serve .               # en otra terminal: la app, en http://localhost:3000
 ```
-
-Abre `http://localhost:8787` en dos navegadores (o una ventana normal y otra de incógnito) y chatea contigo mismo.
 
 ## Cómo funciona la seguridad
 
@@ -126,21 +125,20 @@ Cifra is an end-to-end encrypted chat app with no phone number or email:
 - Safety code to compare in person, blocking, leave group, clear chat, change password, sign out other devices, delete account.
 - WebSocket real time via a Durable Object, with automatic 4-second polling if it isn't configured.
 
-## Deploy (about 10 minutes, Cloudflare free plan)
+## Deploy (Cloudflare free plan)
 
-Inside the `cifra` folder:
+**Server from your phone (Cloudflare dashboard):** Workers & Pages → Create → Worker named `cifra` → Deploy → Edit code → paste all of `worker.js` → Deploy. Create a D1 database `cifra-db`, add it to the Worker under Settings → Bindings as `DB`, and add a Secret named `PEPPER` (a long random string; never change it later). Optionally add the cron trigger `*/15 * * * *`. Opening the Worker URL shows a setup check and the URL to put in `SERVER_URL`. The dashboard can't create the Durable Object, so the app polls every 4 seconds instead of using WebSockets.
+
+**Server with wrangler (computer, with real-time WebSockets):**
 
 ```bash
 npx wrangler login
 npx wrangler d1 create cifra-db        # paste the database_id into wrangler.toml
-npx wrangler d1 execute cifra-db --remote --file=schema.sql
-npx wrangler secret put PEPPER         # a long random string; never change it later
+npx wrangler secret put PEPPER
 npx wrangler deploy
 ```
 
-The app is then live at `https://cifra.<your-subdomain>.workers.dev`: `index.html` is bundled into the same Worker as the API (run `npx wrangler deploy` again after changing it). For GitHub Pages, enable Pages on `main` / root and set `SERVER_URL` at the top of the script in `index.html` to your Worker URL.
-
-Local test: create `.dev.vars` with `PEPPER="any-long-test-string"`, run `npx wrangler d1 execute cifra-db --local --file=schema.sql`, then `npx wrangler dev` and open `http://localhost:8787` in two browsers.
+**App on GitHub Pages:** enable Pages on `main` / root, set `SERVER_URL` at the top of the script in `index.html` to your Worker URL, and push. The app is then at `https://ian20256.github.io/CIFRA/`. The database tables are created automatically on first use.
 
 ## Security in short
 
