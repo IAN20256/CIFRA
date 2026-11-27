@@ -441,7 +441,9 @@ body.shielded #app,body.shielded #viewer,body.shielded .sheet-wrap{filter:blur(2
    ════════════════════════════════════════════════════════════════════ */
 const SERVER_URL = '';   // ej. 'https://cifra.tu-usuario.workers.dev'
 
-const SERVER = (SERVER_URL || (/^https?:$/.test(location.protocol) ? location.origin : '')).replace(/\/+$/, '');
+// En GitHub Pages no hay API en el mismo dominio: ahí SERVER_URL es obligatorio.
+const ON_PAGES = /\.github\.io$/i.test(location.hostname);
+const SERVER = (SERVER_URL || (/^https?:$/.test(location.protocol) && !ON_PAGES ? location.origin : '')).replace(/\/+$/, '');
 const TTLS = [0, 300, 3600, 86400, 604800];
 
 /* ─── utilidades ─── */

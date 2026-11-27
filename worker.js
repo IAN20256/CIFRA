@@ -11,6 +11,10 @@
  * The server never sees plaintext messages or passwords. See README.md.
  */
 
+// La app completa va empaquetada dentro del Worker como texto (regla "Text" en wrangler.toml).
+// The whole app is bundled into the Worker as text ("Text" rule in wrangler.toml).
+import APP_HTML from './index.html';
+
 const CODE_MIN = 10000, CODE_SPAN = 90000;   // códigos de usuario de 5 dígitos
 const SESSION_IDLE = 24 * 3600e3;            // la sesión caduca tras 24 h sin uso
 const TTLS = [0, 300, 3600, 86400, 604800];  // mensajes temporales: off, 5 min, 1 h, 24 h, 7 días
@@ -20,6 +24,16 @@ const IP_MAX = 40, IP_WIN = 15 * 60e3;       // y 40 por IP
 const JOIN_MAX = 15, JOIN_WIN = 10 * 60e3;   // intentos fallidos de unirse a grupos
 const SIGNUP_MAX = 20, SIGNUP_WIN = 3600e3;  // cuentas nuevas por IP por hora
 const PAGE = 50;
+
+const HTML_HEADERS = {
+  'Content-Type': 'text/html; charset=utf-8',
+  'Cache-Control': 'no-cache',
+  'X-Content-Type-Options': 'nosniff',
+  'Referrer-Policy': 'no-referrer',
+  'X-Frame-Options': 'DENY',
+  'Content-Security-Policy': "frame-ancestors 'none'",
+  'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+};
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -32,6 +46,9 @@ export default {
   async fetch(req, env, ctx) {
     const url = new URL(req.url);
     if (!url.pathname.startsWith('/api/')) {
+      if ((req.method === 'GET' || req.method === 'HEAD') && (url.pathname === '/' || url.pathname === '/index.html')) {
+        return new Response(req.method === 'HEAD' ? null : APP_HTML, { headers: HTML_HEADERS });
+      }
       return new Response('Cifra ✓', { headers: { 'Content-Type': 'text/plain; charset=utf-8', ...CORS } });
     }
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });

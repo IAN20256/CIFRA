@@ -33,7 +33,7 @@ Cifra es una app de chats cifrados de extremo a extremo. No pide teléfono ni co
 
 | Archivo | Qué es |
 |---|---|
-| `public/index.html` | La app completa: HTML + CSS + JS en un solo archivo, sin frameworks |
+| `index.html` | La app completa: HTML + CSS + JS en un solo archivo, sin frameworks |
 | `worker.js` | El servidor (Cloudflare Worker + D1 + Durable Object) |
 | `schema.sql` | Tablas de la base de datos D1 |
 | `wrangler.toml` | Configuración de Cloudflare |
@@ -60,17 +60,18 @@ Para `PEPPER` pega un texto largo y aleatorio (mínimo 16 caracteres, mejor 40 o
 npx wrangler deploy
 ```
 
-Listo: la app queda en `https://cifra.<tu-subdominio>.workers.dev`. El mismo Worker sirve la app y la API.
+Listo: la app queda en `https://cifra.<tu-subdominio>.workers.dev`. El mismo Worker sirve la app y la API (`index.html` va empaquetado dentro, así que si lo cambias vuelve a correr `npx wrangler deploy`).
 
-### ¿Prefieres GitHub Pages para el HTML?
+### También en GitHub Pages
 
-Sube `public/index.html` a tu repo (por ejemplo `ian20256.github.io/cifra/`) y, dentro del archivo, cambia:
+1. En el repo: **Settings → Pages → Deploy from a branch → `main` / `(root)`**.
+2. En `index.html` cambia esta línea (arriba del `<script>`) y haz push:
 
 ```js
 const SERVER_URL = 'https://cifra.<tu-subdominio>.workers.dev';
 ```
 
-El Worker ya responde con CORS.
+La app queda en `https://ian20256.github.io/CIFRA/` y usa tu Worker como servidor (ya responde con CORS). Mientras `SERVER_URL` esté vacío, la app avisa que falta configurarlo.
 
 ### Probar en tu compu
 
@@ -137,7 +138,7 @@ npx wrangler secret put PEPPER         # a long random string; never change it l
 npx wrangler deploy
 ```
 
-The app is then live at `https://cifra.<your-subdomain>.workers.dev`, served by the same Worker as the API. To host the HTML on GitHub Pages instead, set `SERVER_URL` at the top of the script in `public/index.html` to your Worker URL.
+The app is then live at `https://cifra.<your-subdomain>.workers.dev`: `index.html` is bundled into the same Worker as the API (run `npx wrangler deploy` again after changing it). For GitHub Pages, enable Pages on `main` / root and set `SERVER_URL` at the top of the script in `index.html` to your Worker URL.
 
 Local test: create `.dev.vars` with `PEPPER="any-long-test-string"`, run `npx wrangler d1 execute cifra-db --local --file=schema.sql`, then `npx wrangler dev` and open `http://localhost:8787` in two browsers.
 

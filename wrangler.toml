@@ -2,10 +2,13 @@ name = "cifra"
 main = "worker.js"
 compatibility_date = "2025-09-01"
 
-# La app (public/index.html) se sirve desde el mismo Worker.
-# The app (public/index.html) is served by the same Worker.
-[assets]
-directory = "./public"
+# index.html se empaqueta dentro del Worker: el mismo Worker sirve la app y la API.
+# Si cambias index.html, vuelve a correr "npx wrangler deploy".
+# index.html is bundled into the Worker, which serves both the app and the API.
+[[rules]]
+type = "Text"
+globs = ["**/*.html"]
+fallthrough = true
 
 [[d1_databases]]
 binding = "DB"
