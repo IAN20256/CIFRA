@@ -214,6 +214,9 @@ input,textarea{font:inherit;color:inherit}
 .once-line .ic-svg{width:20px;height:20px}
 .once-line.tap{color:var(--amber2)}
 .row.mine .once-line{color:var(--ink)}
+.lnk{color:var(--amber2);text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:2px;overflow-wrap:anywhere;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.lnk:focus-visible{outline:2px solid var(--amber2);outline-offset:2px;border-radius:3px}
+.row.mine .lnk{color:inherit}
 .stealth .bubble .txt{filter:blur(7px);transition:filter .12s}
 .stealth .bubble.peek .txt{filter:none}
 .stealth-tip{align-self:center;display:flex;gap:6px;align-items:center;font-size:12px;color:var(--amber2);margin:0 0 6px}
@@ -237,6 +240,12 @@ input,textarea{font:inherit;color:inherit}
 /* ── sheets ── */
 .sheet-wrap{position:fixed;inset:0;z-index:50;display:none}
 .sheet-wrap.on{display:block}
+.sheet-wrap.top{z-index:80}
+.link-host{display:flex;align-items:center;gap:10px;padding:14px;border-radius:14px;background:var(--panel);border:1px solid var(--line);font-size:18px;overflow-wrap:anywhere}
+.link-host .ic-svg{color:var(--amber2);flex:none}
+.link-full{margin:0;font-size:12.5px;color:var(--muted);overflow-wrap:anywhere;max-height:6.6em;overflow:auto}
+.link-warn{display:flex;gap:8px;align-items:flex-start;margin:0;font-size:13.5px;line-height:1.35;color:#ffb0a6}
+.link-warn .ic-svg{flex:none;margin-top:1px}
 .sheet-bg{position:absolute;inset:0;background:rgba(4,5,7,.62);animation:fade .2s}
 .sheet{position:absolute;left:0;right:0;bottom:0;max-height:92dvh;overflow-y:auto;background:var(--bg2);border-top:1px solid var(--line2);border-radius:24px 24px 0 0;padding:8px 18px calc(22px + var(--sb));animation:up .26s cubic-bezier(.2,.9,.25,1);overscroll-behavior:contain}
 @media(min-width:860px){.sheet{left:50%;right:auto;bottom:auto;top:50%;width:460px;transform:translate(-50%,-50%);border:1px solid var(--line2);border-radius:24px;max-height:88vh;animation:pop .2s ease-out}}
@@ -502,6 +511,7 @@ const ICONS = {
   check: '<path d="M20 6L9 17l-5-5"/>',
   ban: '<circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/>',
   zap: '<path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>',
+  globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>',
 };
 function icon(name, size) {
   const s = h('span', { class: 'ic-svg' + (size ? ' ' + size : '') });
@@ -578,6 +588,11 @@ const T = {
     once_title: 'Mensaje de una vez', once_close: 'Cerrar · ya no podrás volver a verlo',
     deleted_msg: 'Mensaje eliminado', cant_decrypt: 'No se pudo descifrar',
     unsend: 'Borrar para todos', retry: 'Reintentar', discard: 'Descartar', failed: 'No se envió',
+    link_title: 'Abrir enlace', link_open: 'Abrir', link_hint: 'Se abre fuera de Cifra. Revisa que el sitio sea el que esperas.',
+    link_http: 'No es seguro (http): lo que escribas ahí lo pueden ver otros.',
+    link_idn: 'El nombre usa letras especiales y puede estar imitando a otro sitio.',
+    link_user: 'El enlace esconde el sitio real detrás de una @.',
+    link_ip: 'Es una dirección de números, no el nombre de un sitio.',
     load_older: 'Cargar anteriores', today: 'Hoy', yesterday: 'Ayer',
     members: '{n} miembros', member1: '1 miembro', you: 'Tú',
     new_chat_pv: 'Chat nuevo', encrypted_msg: 'Mensaje cifrado', group: 'Grupo',
@@ -690,6 +705,11 @@ const T = {
     once_title: 'View-once message', once_close: "Close · you won't see it again",
     deleted_msg: 'Message deleted', cant_decrypt: "Couldn't decrypt",
     unsend: 'Delete for everyone', retry: 'Retry', discard: 'Discard', failed: 'Not sent',
+    link_title: 'Open link', link_open: 'Open', link_hint: 'It opens outside Cifra. Check that the site is the one you expect.',
+    link_http: 'Not secure (http): others can see what you type there.',
+    link_idn: 'The name uses special characters and may be imitating another site.',
+    link_user: 'The link hides the real site behind an @.',
+    link_ip: "It's a numeric address, not a site name.",
     load_older: 'Load earlier', today: 'Today', yesterday: 'Yesterday',
     members: '{n} members', member1: '1 member', you: 'You',
     new_chat_pv: 'New chat', encrypted_msg: 'Encrypted message', group: 'Group',
@@ -1356,7 +1376,7 @@ function bubble(room, m, cont) {
     } else if (m.raw && !m.opened) b.append(h('button', { class: 'once-line tap', onclick: () => openOnce(room, m) }, icon('once'), h('span', { text: t('once_tap') })));
     else b.append(h('div', { class: 'once-line dim' }, icon('once'), h('span', { text: t('once_opened') })));
   } else if (m.bad) b.append(h('div', { class: 'txt dim', text: '⚠️ ' + t('cant_decrypt') }));
-  else b.append(h('div', { class: 'txt', text: m.text }));
+  else b.append(h('div', { class: 'txt' }, linkify(m.text)));
   const meta = h('div', { class: 'meta' });
   if (m.exp) meta.append(h('span', { class: 'exp' }, icon('clock', 'tiny'), h('span', { text: leftLabel(m.exp) })));
   meta.append(h('span', { text: fmtTime(m.at) }));
@@ -1393,7 +1413,7 @@ function toggleActions(row, m) {
 function pendingBubble(room, p) {
   const failed = p.state === 'failed';
   const b = h('div', { class: 'bubble' },
-    p.kind === 'once' ? h('div', { class: 'once-line' }, icon('once'), h('span', { text: t('once_sent') })) : h('div', { class: 'txt', text: p.text }),
+    p.kind === 'once' ? h('div', { class: 'once-line' }, icon('once'), h('span', { text: t('once_sent') })) : h('div', { class: 'txt' }, linkify(p.text)),
     h('div', { class: 'meta' }, failed ? h('span', { text: '⚠️ ' + t('failed') }) : h('span', { class: 'spin tiny' }), h('span', { text: fmtTime(p.at) })));
   const f = document.createDocumentFragment();
   f.append(h('div', { class: 'row mine pending' + (failed ? ' failed' : '') }, b));
@@ -1518,6 +1538,66 @@ function tickExpiry() {
   if (cur) renderMessages();
 }
 
+/* ─── enlaces / links ─── */
+// Se detectan en el texto ya descifrado; nunca se usa innerHTML ni se visita el enlace.
+// Detected in the decrypted text; never innerHTML, and nothing fetches the link (no previews).
+const LINK_TLDS = 'com|net|org|io|dev|app|mx|es|co|ar|cl|pe|uy|ve|ec|bo|py|gt|cr|do|us|uk|ca|de|fr|it|pt|br|eu|info|me|tv|gg|ly|ai|edu|gov|xyz|site|online|store|shop|blog|link|page|tech|cloud|so|to|fm|news|live|art|fun|top';
+const LINK_RE = new RegExp('(?:https?://[^\\s<>"]+|www\\.[^\\s<>"]+|(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+(?:' + LINK_TLDS + ')(?![a-z0-9-])(?:[/?#][^\\s<>"]*)?)', 'gi');
+function trimLink(s) {
+  for (;;) {
+    const before = s;
+    s = s.replace(/[.,;:!?¡¿'"…*_~]+$/, '');
+    for (const [o, c] of [['(', ')'], ['[', ']'], ['{', '}']]) {
+      if (s.endsWith(c) && s.split(o).length < s.split(c).length) s = s.slice(0, -1);
+    }
+    if (s === before) return s;
+  }
+}
+function safeLink(raw) {
+  try {
+    const u = new URL(/^https?:\/\//i.test(raw) ? raw : 'https://' + raw);
+    if ((u.protocol !== 'https:' && u.protocol !== 'http:') || !u.hostname.includes('.')) return null;
+    return u;
+  } catch { return null; }
+}
+function linkify(text) {
+  const out = [];
+  let last = 0;
+  for (const mt of String(text).matchAll(LINK_RE)) {
+    const i = mt.index;
+    if (i < last || (i > 0 && /[\w@.\-/:]/.test(text[i - 1]))) continue;   // correos, partes de otra palabra / emails, parts of words
+    const raw = trimLink(mt[0]);
+    const url = safeLink(raw);
+    if (!url) continue;
+    if (i > last) out.push(text.slice(last, i));
+    const a = h('span', { class: 'lnk', role: 'link', tabindex: '0', text: raw });
+    const go = e => { e.preventDefault(); e.stopPropagation(); confirmLink(url); };
+    a.addEventListener('click', go);
+    a.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') go(e); });
+    out.push(a);
+    last = i + raw.length;
+  }
+  if (last < text.length) out.push(text.slice(last));
+  return out;
+}
+function confirmLink(url) {
+  const host = url.hostname;   // las letras raras salen como xn--… / lookalike letters show as xn--…
+  const warn = [];
+  if (url.protocol === 'http:') warn.push(t('link_http'));
+  if (/(^|\.)xn--/i.test(host)) warn.push(t('link_idn'));
+  if (url.username || url.password) warn.push(t('link_user'));
+  if (/^[\d.]+$/.test(host) || host.startsWith('[')) warn.push(t('link_ip'));
+  const go = h('button', { class: 'btn primary', type: 'button' }, t('link_open'));
+  go.onclick = () => { Sheet.close(); window.open(url.href, '_blank', 'noopener,noreferrer'); };
+  Sheet.open(h('div', { class: 'stack' }, sheetHead(t('link_title')),
+    h('div', { class: 'link-host' }, icon('globe'), h('b', { text: host })),
+    h('p', { class: 'link-full mono', text: url.href }),
+    warn.map(w => h('p', { class: 'link-warn' }, icon('alert', 'sm'), h('span', { text: w }))),
+    h('p', { class: 'hint', text: t('link_hint') }),
+    h('div', { class: 'row-btns' }, h('button', { class: 'btn ghost', type: 'button', onclick: () => Sheet.close() }, t('cancel')), go)));
+  if ($('#viewer').classList.contains('on')) $('#sheet').classList.add('top');
+}
+
 /* ─── ver una vez / view once ─── */
 let viewerDone = null;
 async function openOnce(room, m) {
@@ -1525,7 +1605,7 @@ async function openOnce(room, m) {
   let text;
   try { text = JSON.parse(await C.openText(room.key, m.raw, aad(room.id, m.from, 'once'))).m; }
   catch { toast(t('cant_decrypt')); return; }
-  $('#viewer-text').textContent = text;
+  $('#viewer-text').replaceChildren(...linkify(text));
   $('#viewer').classList.add('on');
   SND.play('open');
   viewerDone = () => { m.opened = true; m.raw = ''; renderMessages(); };
@@ -1673,6 +1753,7 @@ const Sheet = {
     this.onClose = null;
     if (prev) try { prev(); } catch { /* */ }
     $('#sheet-body').replaceChildren(content);
+    $('#sheet').classList.remove('top');
     $('#sheet').classList.add('on');
     $('#sheet .sheet').scrollTop = 0;
     this.onClose = onClose || null;
@@ -1681,7 +1762,7 @@ const Sheet = {
   close() {
     const w = $('#sheet');
     if (!w.classList.contains('on')) return;
-    w.classList.remove('on');
+    w.classList.remove('on', 'top');
     $('#sheet-body').replaceChildren();
     const f = this.onClose;
     this.onClose = null;
@@ -1689,6 +1770,7 @@ const Sheet = {
     Nav.sync();
   },
   isOpen() { return $('#sheet').classList.contains('on'); },
+  onTop() { return this.isOpen() && $('#sheet').classList.contains('top'); },
 };
 const sheetHead = title => h('div', { class: 'sh-head' }, h('h2', { text: title }), h('button', { class: 'icon-btn', type: 'button', 'aria-label': t('close'), onclick: () => Sheet.close() }, icon('x')));
 
@@ -1706,7 +1788,8 @@ const Nav = {
 addEventListener('popstate', () => {
   if (Nav.skip) { Nav.skip = false; return; }
   Nav.has = false;
-  if ($('#viewer').classList.contains('on')) closeViewer();
+  if (Sheet.onTop()) Sheet.close();
+  else if ($('#viewer').classList.contains('on')) closeViewer();
   else if (Sheet.isOpen()) Sheet.close();
   else if (S.current && isMobile()) closeChat();
   Nav.apply();
@@ -2144,7 +2227,8 @@ function protect() {
   document.addEventListener('keydown', e => {
     if ((e.ctrlKey || e.metaKey) && (e.key === 'p' || e.key === 'P') && S.token) e.preventDefault();
     if (e.key === 'Escape') {
-      if ($('#viewer').classList.contains('on')) closeViewer();
+      if (Sheet.onTop()) Sheet.close();
+      else if ($('#viewer').classList.contains('on')) closeViewer();
       else if (Sheet.isOpen()) Sheet.close();
       else if (S.current && isMobile()) closeChat();
     }
