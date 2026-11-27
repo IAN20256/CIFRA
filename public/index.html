@@ -1,0 +1,2246 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; connect-src https: wss: http://localhost:* ws://localhost:* http://127.0.0.1:* ws://127.0.0.1:*; manifest-src data:; base-uri 'none'; form-action 'none'">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<meta name="theme-color" content="#0f1013">
+<meta name="referrer" content="no-referrer">
+<meta name="color-scheme" content="dark">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="description" content="Cifra — chats cifrados sin número de teléfono / encrypted chats, no phone number">
+<title>Cifra</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath d='M15 7h34a9 9 0 0 1 9 9v23a9 9 0 0 1-9 9H31l-12.5 9.5c-.9.7-2.1 0-2.1-1.1V48H15a9 9 0 0 1-9-9V16a9 9 0 0 1 9-9z' fill='%23ffb547'/%3E%3Crect x='14' y='18' width='10.5' height='19' rx='3' fill='%23241706'/%3E%3Crect x='26.75' y='18' width='10.5' height='19' rx='3' fill='%23241706'/%3E%3Crect x='39.5' y='18' width='10.5' height='19' rx='3' fill='%23241706'/%3E%3C/svg%3E">
+<!--
+  CIFRA · chats cifrados sin número de teléfono / encrypted chats without a phone number
+  Creado por Ian Amaro.
+  Un solo archivo: HTML + CSS + JS (sin frameworks). Servidor: worker.js (Cloudflare).
+-->
+<style>
+:root{
+  --bg:#0f1013;--bg2:#14161a;--panel:#1b1e24;--panel2:#23272f;--line:#2b3039;--line2:#373d48;
+  --text:#efe9dc;--muted:#a39d91;--faint:#716c63;
+  --amber:#ffb547;--amber2:#ffd18a;--ink:#241706;
+  --ok:#6fdc9f;--bad:#ff7a6b;
+  --cell1:#fbf5e6;--cell2:#e9dfc6;--cell3:#bcae8b;--cellInk:#1d1810;
+  --mono:ui-monospace,"SF Mono","Cascadia Mono","Roboto Mono",Menlo,Consolas,monospace;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --st:env(safe-area-inset-top,0px);--sb:env(safe-area-inset-bottom,0px);
+  --wm:none;--wm2:none;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;scrollbar-width:thin;scrollbar-color:var(--line2) transparent}
+[hidden]{display:none!important}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:15px/1.4 var(--sans)}
+body{overflow:hidden;overscroll-behavior:none}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0}
+input,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+.mono{font-family:var(--mono)}.muted{color:var(--muted)}.grow{flex:1}
+#app{position:fixed;inset:0}
+.screen{position:fixed;inset:0;display:none}
+.screen.on{display:flex}
+
+/* ── icons ── */
+.ic-svg{display:inline-grid;place-items:center;width:22px;height:22px;flex:none}
+.ic-svg svg{width:100%;height:100%}
+.ic-svg.tiny{width:14px;height:14px}.ic-svg.sm{width:18px;height:18px}.ic-svg.lg{width:30px;height:30px}
+
+/* ── auth screens ── */
+.auth{flex-direction:column;overflow-y:auto;background:radial-gradient(120% 70% at 50% -8%,#2c2313 0%,rgba(15,16,19,0) 62%),var(--bg)}
+.auth-top{display:flex;align-items:center;gap:8px;padding:calc(10px + var(--st)) 14px 4px;min-height:58px;max-width:520px;width:100%;margin:0 auto}
+.auth-top h2{font-size:18px;margin:0}
+.auth-body{flex:1;display:flex;flex-direction:column;gap:18px;padding:10px 22px;max-width:460px;width:100%;margin:0 auto}
+.auth-body.center{align-items:center;text-align:center;justify-content:center}
+.auth-actions{display:flex;flex-direction:column;gap:10px;padding:12px 22px calc(22px + var(--sb));max-width:460px;width:100%;margin:0 auto}
+.logo{width:78px;height:78px;filter:drop-shadow(0 12px 30px rgba(255,181,71,.35))}
+.logo svg,.brand-sm svg,.empty-logo svg,.chat-empty .lg-logo svg,.shield-in svg{width:100%;height:100%;display:block}
+.brand{font-size:44px;font-weight:800;letter-spacing:-.025em;margin:0;line-height:1}
+.tag{color:var(--muted);margin:0;font-size:16px;max-width:300px}
+.feats{list-style:none;padding:0;margin:4px 0 0;display:flex;flex-direction:column;gap:11px;text-align:left;width:100%;max-width:350px}
+.feats li{display:flex;gap:12px;align-items:center;font-size:14.5px}
+.feats .fi{width:36px;height:36px;border-radius:11px;background:rgba(255,181,71,.1);color:var(--amber);display:grid;place-items:center;flex:none}
+.fine{font-size:12.5px;color:var(--faint);text-align:center;margin:4px 0 0}
+.eyebrow{font-size:13px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--amber)}
+.lock-ic{width:94px;height:94px;border-radius:30px;background:radial-gradient(circle at 50% 35%,#3a2c12,#1d1a14);display:grid;place-items:center;color:var(--amber);box-shadow:0 18px 50px -18px rgba(255,181,71,.6),inset 0 0 0 1px rgba(255,181,71,.25)}
+.lock-ic .ic-svg{width:44px;height:44px}
+
+/* ── rotor (code wheels) ── */
+.rotor{display:flex;gap:6px;justify-content:center;align-items:center;position:relative;user-select:none;-webkit-user-select:none}
+.rotor .cell{width:42px;height:56px;border-radius:9px;background:linear-gradient(180deg,var(--cell3) 0%,var(--cell2) 18%,var(--cell1) 50%,var(--cell2) 82%,var(--cell3) 100%);color:var(--cellInk);font:800 29px/56px var(--mono);text-align:center;box-shadow:inset 0 0 0 1px rgba(0,0,0,.25),0 3px 0 rgba(0,0,0,.45),0 8px 18px -8px rgba(0,0,0,.6);position:relative;transition:background .15s}
+.rotor .cell::after{content:"";position:absolute;left:0;right:0;top:50%;height:1px;background:rgba(0,0,0,.07)}
+.rotor .gap{width:8px}
+.rotor.md .cell{width:32px;height:43px;font-size:22px;line-height:43px;border-radius:7px}
+.rotor.sm .cell{width:24px;height:32px;font-size:17px;line-height:32px;border-radius:6px}
+.rotor.r8{gap:5px}.rotor.r8 .cell{width:33px;height:46px;font-size:23px;line-height:46px;border-radius:8px}
+.rotor.entry{cursor:text}
+.rotor.entry input{position:absolute;inset:0;width:100%;height:100%;opacity:0;font-size:16px;border:0;padding:0;margin:0;caret-color:transparent;color:transparent;background:transparent;z-index:2}
+.rotor.entry .cell:not(.filled){color:transparent;background:linear-gradient(180deg,#2a2e36,#20242b);box-shadow:inset 0 0 0 1px var(--line2)}
+.rotor.entry.focus .cell.cur{box-shadow:inset 0 0 0 2px var(--amber),0 0 0 4px rgba(255,181,71,.14)}
+.rotor.entry.focus .cell.cur:not(.filled)::before{content:"";position:absolute;left:50%;top:27%;bottom:27%;width:2px;margin-left:-1px;background:var(--amber);animation:blink 1s steps(1) infinite}
+.rotor .cell.roll{animation:roll .08s linear infinite}
+.rotor .cell.settle{animation:settle .38s cubic-bezier(.2,1.6,.4,1)}
+@keyframes roll{50%{transform:translateY(2px)}}
+@keyframes settle{0%{transform:translateY(-7px)}100%{transform:none}}
+@keyframes blink{50%{opacity:0}}
+
+/* ── buttons & fields ── */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:50px;padding:0 20px;border-radius:14px;font-weight:700;font-size:15.5px;transition:transform .08s,background .15s,opacity .15s;width:100%;text-align:center}
+.btn.primary{background:var(--amber);color:var(--ink);box-shadow:0 10px 26px -12px rgba(255,181,71,.7),inset 0 -2px 0 rgba(0,0,0,.18)}
+.btn.primary:hover{background:#ffc263}
+.btn.ghost{background:var(--panel);border:1px solid var(--line);color:var(--text)}
+.btn.ghost:hover{background:var(--panel2)}
+.btn.danger{background:rgba(255,122,107,.1);color:#ffb0a6;border:1px solid rgba(255,122,107,.3)}
+.btn.sm{min-height:40px;padding:0 13px;font-size:14px;border-radius:11px;width:auto}
+.btn:disabled{opacity:.45;pointer-events:none}
+.btn:active{transform:translateY(1px)}
+.link{color:var(--amber);font-weight:650;padding:10px;font-size:14.5px}
+.row-btns{display:flex;gap:8px;width:100%}.row-btns .btn{flex:1}
+.field{display:flex;flex-direction:column;gap:7px;text-align:left;width:100%}
+.field>label,.lbl{font-size:12px;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.07em}
+.input{width:100%;height:50px;border-radius:13px;background:var(--bg2);border:1px solid var(--line);padding:0 14px;outline:none;font-size:16px;color:var(--text);transition:border-color .15s,box-shadow .15s}
+.input:focus{border-color:var(--amber);box-shadow:0 0 0 3px rgba(255,181,71,.14)}
+.input.mono{font-family:var(--mono);letter-spacing:.06em}
+.pass-row{display:flex;gap:8px;align-items:center}
+.pass-box{position:relative;flex:1;min-width:0}
+.pass-box .input{padding-right:48px}
+.pass-box .eye{position:absolute;right:4px;top:5px;width:40px;height:40px;border-radius:10px;display:grid;place-items:center;color:var(--muted)}
+.meter{display:flex;gap:4px;align-items:center;margin-top:9px;font-size:12.5px;color:var(--muted)}
+.meter i{flex:1;height:4px;border-radius:2px;background:var(--line)}
+.meter[data-s="1"] i:nth-child(1){background:#ff9f5a}
+.meter[data-s="2"] i:nth-child(-n+2){background:var(--amber)}
+.meter[data-s="3"] i:nth-child(-n+3){background:var(--ok)}
+.meter span{min-width:64px;text-align:right}
+.hint{font-size:13.5px;color:var(--muted);margin:0}
+.note{display:flex;gap:10px;align-items:flex-start;background:rgba(255,181,71,.07);border:1px solid rgba(255,181,71,.18);color:#f3dcb2;padding:12px 14px;border-radius:14px;font-size:13.5px;text-align:left}
+.note .ic-svg{color:var(--amber);margin-top:1px}
+.note.danger-note{background:rgba(255,122,107,.08);border-color:rgba(255,122,107,.3);color:#ffc2ba}
+.note.danger-note .ic-svg{color:var(--bad)}
+.err{color:var(--bad);font-size:14px;min-height:20px;text-align:center}
+.warn-box{background:rgba(255,122,107,.08);border:1px solid rgba(255,122,107,.3);color:#ffc2ba;padding:11px 14px;border-radius:14px;font-size:13.5px;text-align:left;width:100%;overflow-wrap:anywhere}
+.check{display:flex;gap:10px;align-items:center;font-size:14.5px;cursor:pointer;text-align:left}
+.check input{width:22px;height:22px;accent-color:var(--amber);flex:none}
+.cred{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%}
+.cred div{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:11px 12px;text-align:left;min-width:0}
+.cred small{display:block;color:var(--muted);font-size:11.5px;font-weight:800;text-transform:uppercase;letter-spacing:.07em}
+.cred b{font:700 21px var(--mono);letter-spacing:.06em;overflow-wrap:anywhere}
+.spin{width:18px;height:18px;border:2.5px solid currentColor;border-right-color:transparent;border-radius:50%;animation:spin .7s linear infinite;flex:none;display:inline-block}
+.spin.tiny{width:10px;height:10px;border-width:1.5px}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes shake{20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
+.shake{animation:shake .35s}
+
+/* ── main layout ── */
+#v-main{background:var(--bg)}
+#list-pane{position:relative;display:flex;flex-direction:column;width:100%;min-width:0;background:var(--bg)}
+#chat-pane{display:none;flex:1;min-width:0;flex-direction:column;position:relative;background:var(--bg2)}
+#v-main.in-chat #list-pane{display:none}
+#v-main.in-chat #chat-pane{display:flex}
+@media(min-width:860px){
+  #list-pane,#v-main.in-chat #list-pane{display:flex;width:370px;flex:none;border-right:1px solid var(--line)}
+  #chat-pane{display:flex}
+  .only-mobile{display:none!important}
+}
+.bar{display:flex;align-items:center;gap:4px;padding:calc(8px + var(--st)) 8px 8px 14px;min-height:62px;border-bottom:1px solid var(--line);background:rgba(15,16,19,.94);position:relative;z-index:4}
+.icon-btn{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;color:var(--muted);flex:none;transition:background .15s,color .15s}
+.icon-btn:hover{background:var(--panel);color:var(--text)}
+.brand-sm{display:flex;align-items:center;gap:9px;font-weight:800;font-size:19px;letter-spacing:-.01em}
+.brand-sm .lg{width:30px;height:30px}
+.code-chip{display:flex;align-items:center;gap:5px;height:34px;padding:0 10px;border-radius:10px;background:var(--panel);border:1px solid var(--line);font:700 14px var(--mono);letter-spacing:.08em;color:var(--amber2);margin-right:2px}
+.net{display:none;background:#2e2412;color:var(--amber2);font-size:13px;text-align:center;padding:6px}
+.net.on{display:block}
+.list{flex:1;overflow-y:auto;padding:6px 8px calc(100px + var(--sb))}
+.item{display:flex;gap:12px;align-items:center;width:100%;padding:10px;border-radius:15px;text-align:left;transition:background .12s}
+.item:hover{background:var(--panel)}
+.item.sel{background:var(--panel2)}
+.av{width:50px;height:50px;border-radius:50%;flex:none;display:grid;place-items:center;font-weight:800;font-size:17px;background:hsl(var(--h) 36% 21%);color:hsl(var(--h) 85% 80%);box-shadow:inset 0 0 0 1px hsl(var(--h) 42% 31%)}
+.av.grp{border-radius:16px}
+.av.sm{width:38px;height:38px;font-size:14px}.av.sm.grp{border-radius:12px}
+.av.lg{width:78px;height:78px;font-size:27px}.av.lg.grp{border-radius:24px}
+.mid{flex:1;min-width:0}
+.nm{display:flex;align-items:center;gap:6px;font-weight:700;font-size:15.5px;min-width:0}
+.ell{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.nm .ic-svg{color:var(--faint)}
+.pv{color:var(--muted);font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+.item.unread .pv{color:var(--text)}
+.rt{display:flex;flex-direction:column;align-items:flex-end;gap:6px;font-size:12px;color:var(--faint);flex:none}
+.item.unread .rt>span:first-child{color:var(--amber)}
+.badge{min-width:21px;height:21px;padding:0 6px;border-radius:11px;background:var(--amber);color:var(--ink);font-size:12px;font-weight:800;display:grid;place-items:center}
+.fab{position:absolute;right:18px;bottom:calc(20px + var(--sb));width:60px;height:60px;border-radius:19px;background:var(--amber);color:var(--ink);display:grid;place-items:center;box-shadow:0 14px 34px -10px rgba(255,181,71,.75),inset 0 -3px 0 rgba(0,0,0,.18);z-index:5;transition:transform .1s}
+.fab:active{transform:scale(.96)}
+.fab .ic-svg{width:28px;height:28px}
+.empty{display:flex;flex-direction:column;align-items:center;text-align:center;gap:14px;padding:44px 18px 20px;color:var(--muted)}
+.empty h3{color:var(--text);margin:0;font-size:18px}
+.empty p{margin:0;max-width:300px}
+.empty-logo{width:64px;height:64px;opacity:.85}
+.empty .row-btns{flex-wrap:wrap;justify-content:center;max-width:360px}
+.empty .row-btns .btn{flex:1 1 auto;white-space:nowrap}
+
+/* ── chat ── */
+.chat{display:flex;flex-direction:column;flex:1;min-height:0;position:relative}
+.chat-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:var(--muted);text-align:center;padding:24px}
+.chat-empty .lg-logo{width:66px;height:66px;opacity:.9}
+.chat-id{display:flex;align-items:center;gap:10px;min-width:0;flex:1;text-align:left;padding:4px;border-radius:12px}
+.chat-id .ct{display:flex;flex-direction:column;min-width:0}
+.chat-id b{font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chat-id small{color:var(--muted);font-size:12.5px;display:flex;align-items:center;gap:5px;white-space:nowrap;overflow:hidden}
+.chat-id small .ic-svg{color:var(--ok)}
+.chat-id small span:last-child{overflow:hidden;text-overflow:ellipsis}
+.flags{display:flex;gap:4px}
+.flag{display:flex;align-items:center;gap:4px;height:26px;padding:0 8px;border-radius:8px;background:var(--panel);color:var(--amber2);font-size:12px;font-weight:700;white-space:nowrap}
+.msgs-wrap{flex:1;min-height:0;position:relative;display:flex}
+.msgs{flex:1;overflow-y:auto;padding:14px 12px 10px;display:flex;flex-direction:column;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;overscroll-behavior:contain}
+.wm{position:absolute;inset:0;pointer-events:none;background-image:var(--wm);background-repeat:repeat;z-index:2}
+.e2e{align-self:center;display:flex;gap:8px;align-items:flex-start;max-width:340px;background:rgba(255,181,71,.06);border:1px solid rgba(255,181,71,.15);color:#e9d3a8;font-size:12.5px;padding:9px 12px;border-radius:12px;margin:2px 0 8px;text-align:left}
+.e2e .ic-svg{color:var(--amber);margin-top:1px}
+.older{align-self:center;color:var(--amber);font-size:13px;font-weight:700;padding:8px 12px;border-radius:10px;background:var(--panel);margin:2px 0 6px}
+.day{align-self:center;font-size:11.5px;font-weight:800;color:var(--faint);margin:12px 0 4px;text-transform:uppercase;letter-spacing:.09em}
+.row{display:flex;margin-top:6px}
+.row.cont{margin-top:2px}
+.row.mine{justify-content:flex-end}
+.bubble{max-width:min(80%,560px);padding:7px 11px 5px;border-radius:17px;background:var(--panel2);position:relative;overflow-wrap:anywhere}
+.row.theirs .bubble{border-top-left-radius:6px}
+.row.mine .bubble{background:var(--amber);color:var(--ink);border-top-right-radius:6px}
+.row.cont.theirs .bubble{border-top-left-radius:17px}
+.row.cont.mine .bubble{border-top-right-radius:17px}
+.who{font-size:12.5px;font-weight:800;color:hsl(var(--h) 80% 74%);margin-bottom:1px}
+.who small{font-family:var(--mono);font-weight:600;opacity:.7}
+.txt{white-space:pre-wrap;font-size:15.5px;line-height:1.38}
+.meta{display:flex;gap:6px;align-items:center;justify-content:flex-end;font-size:11px;opacity:.62;margin-top:1px;font-variant-numeric:tabular-nums}
+.meta .exp{display:flex;align-items:center;gap:3px}
+.bubble.del .txt,.dim{opacity:.62;font-style:italic}
+.once-line{display:flex;align-items:center;gap:8px;font-weight:700;font-size:14.5px;padding:3px 0;text-align:left}
+.once-line .ic-svg{width:20px;height:20px}
+.once-line.tap{color:var(--amber2)}
+.row.mine .once-line{color:var(--ink)}
+.stealth .bubble .txt{filter:blur(7px);transition:filter .12s}
+.stealth .bubble.peek .txt{filter:none}
+.stealth-tip{align-self:center;display:flex;gap:6px;align-items:center;font-size:12px;color:var(--amber2);margin:0 0 6px}
+.msg-actions{display:flex;justify-content:flex-end;gap:6px;margin:5px 0 2px}
+.msg-actions button{display:flex;gap:6px;align-items:center;font-size:13px;font-weight:700;color:#ffb0a6;background:rgba(255,122,107,.1);border:1px solid rgba(255,122,107,.25);padding:7px 11px;border-radius:10px}
+.msg-actions button.ok{color:var(--amber2);background:rgba(255,181,71,.1);border-color:rgba(255,181,71,.25)}
+.sys{align-self:center;font-size:12.5px;color:var(--muted);background:var(--panel);padding:5px 12px;border-radius:10px;margin:8px 0 2px;text-align:center;max-width:90%}
+.sys.warn{color:var(--amber2);background:#2e2412}
+.pending .bubble{opacity:.72}
+.pending.failed .bubble{background:#3a1d19;color:#ffc2ba;opacity:1}
+.composer{display:flex;align-items:flex-end;gap:6px;padding:8px 10px calc(8px + var(--sb));border-top:1px solid var(--line);background:var(--bg);position:relative;z-index:4}
+.composer textarea{flex:1;resize:none;min-height:46px;max-height:150px;padding:12px 15px;border-radius:23px;background:var(--panel);border:1px solid var(--line);outline:none;font-size:16px;line-height:1.35;color:var(--text);min-width:0}
+.composer textarea:focus{border-color:var(--line2)}
+.composer.once textarea{border-color:var(--amber);background:#241d12}
+.c-btn{width:46px;height:46px;border-radius:50%;display:grid;place-items:center;flex:none;color:var(--muted);transition:background .15s,color .15s}
+.c-btn.on{color:var(--amber);background:rgba(255,181,71,.13)}
+.c-btn.send{background:var(--amber);color:var(--ink)}
+.c-btn.send .ic-svg{width:21px;height:21px;margin-left:-2px}
+.composer-note{padding:14px 16px calc(14px + var(--sb));text-align:center;color:var(--muted);font-size:13.5px;border-top:1px solid var(--line);background:var(--bg)}
+
+/* ── sheets ── */
+.sheet-wrap{position:fixed;inset:0;z-index:50;display:none}
+.sheet-wrap.on{display:block}
+.sheet-bg{position:absolute;inset:0;background:rgba(4,5,7,.62);animation:fade .2s}
+.sheet{position:absolute;left:0;right:0;bottom:0;max-height:92dvh;overflow-y:auto;background:var(--bg2);border-top:1px solid var(--line2);border-radius:24px 24px 0 0;padding:8px 18px calc(22px + var(--sb));animation:up .26s cubic-bezier(.2,.9,.25,1);overscroll-behavior:contain}
+@media(min-width:860px){.sheet{left:50%;right:auto;bottom:auto;top:50%;width:460px;transform:translate(-50%,-50%);border:1px solid var(--line2);border-radius:24px;max-height:88vh;animation:pop .2s ease-out}}
+.grab{width:42px;height:5px;border-radius:3px;background:var(--line2);margin:4px auto 8px}
+.sh-head{display:flex;align-items:center;gap:8px;margin:0 0 12px}
+.sh-head h2{margin:0;font-size:20px;flex:1}
+.sh-sec{margin:18px 0 8px;font-size:12px;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.08em}
+.stack{display:flex;flex-direction:column;gap:12px}
+.stack.center{text-align:center}
+.stack.center .secret-row b{text-align:center}
+.item .mid,.item .pv,.user-card .mid{display:block}
+.menu-item{display:flex;gap:14px;align-items:center;width:100%;padding:14px;border-radius:16px;text-align:left;background:var(--panel);border:1px solid var(--line);margin-bottom:9px}
+.menu-item:hover{background:var(--panel2)}
+.menu-item .mi{width:46px;height:46px;border-radius:13px;background:rgba(255,181,71,.12);color:var(--amber);display:grid;place-items:center;flex:none}
+.menu-item b{display:block;font-size:15.5px}
+.menu-item small{color:var(--muted);font-size:13px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:2px 14px}
+.set-row{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);cursor:pointer}
+.set-row:last-child{border-bottom:0}
+.set-row .grow b{display:block;font-size:15px;font-weight:650}
+.set-row .grow small{display:block;color:var(--muted);font-size:13px;margin-top:2px}
+.prot{display:flex;align-items:center;gap:10px;padding:8px 0;font-size:14px}
+.prot .ic-svg{color:var(--ok)}
+.chips{display:flex;flex-wrap:wrap;gap:7px}
+.chip{height:36px;padding:0 13px;border-radius:11px;background:var(--panel);border:1px solid var(--line);font-size:13.5px;font-weight:650;color:var(--muted)}
+.chip.on{border-color:var(--amber);color:var(--amber2);background:rgba(255,181,71,.1)}
+.seg{display:flex;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:3px;gap:3px}
+.seg button{min-width:44px;height:32px;border-radius:9px;color:var(--muted);font-weight:800;font-size:13px;padding:0 10px}
+.seg button.on{background:var(--panel2);color:var(--text);box-shadow:inset 0 0 0 1px var(--line2)}
+.switch{position:relative;width:48px;height:29px;flex:none}
+.switch input{position:absolute;inset:0;opacity:0;margin:0;cursor:pointer;z-index:1}
+.switch span{position:absolute;inset:0;border-radius:15px;background:var(--line2);transition:.18s}
+.switch span::after{content:"";position:absolute;top:3px;left:3px;width:23px;height:23px;border-radius:50%;background:#f4efe4;transition:.18s;box-shadow:0 1px 3px rgba(0,0,0,.4)}
+.switch input:checked+span{background:var(--amber)}
+.switch input:checked+span::after{transform:translateX(19px)}
+.user-card{display:flex;gap:12px;align-items:center;padding:12px;border-radius:16px;background:var(--panel);border:1px solid var(--line);text-align:left}
+.user-card small{color:var(--muted)}
+.lookup{min-height:78px;display:flex;flex-direction:column;justify-content:center}
+.center-row{display:flex;justify-content:center;padding:14px;color:var(--amber)}
+.safety{font:700 17px/1.8 var(--mono);letter-spacing:.06em;text-align:center;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px;color:var(--amber2);display:grid;grid-template-columns:repeat(3,1fr)}
+.secret-row{display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:8px 8px 8px 14px;width:100%}
+.secret-row b{font:700 21px var(--mono);letter-spacing:.12em;flex:1;text-align:left;overflow-wrap:anywhere}
+.info-top{display:flex;flex-direction:column;align-items:center;gap:6px;margin:2px 0 4px;text-align:center}
+.info-top b{font-size:20px}
+.mem{display:flex;align-items:center;gap:10px;padding:8px 0}
+.mem small{color:var(--muted);font-family:var(--mono)}
+.me-card{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:12px}
+.hold{position:relative;overflow:hidden}
+.hold i{position:absolute;left:0;top:0;bottom:0;width:0;background:rgba(255,122,107,.28)}
+.hold.go i{width:100%;transition:width 1.2s linear}
+.hold>span{position:relative}
+.about{font-size:13.5px;color:var(--muted);line-height:1.5;padding-left:18px;margin:0}
+.about li{margin:6px 0}
+@keyframes up{from{transform:translateY(100%)}}
+@keyframes pop{from{opacity:0;transform:translate(-50%,-47%)}}
+@keyframes fade{from{opacity:0}}
+
+/* ── view-once viewer, shield, toast ── */
+#viewer{position:fixed;inset:0;z-index:70;background:#0a0b0d;display:none;flex-direction:column}
+#viewer.on{display:flex}
+#viewer header{display:flex;align-items:center;gap:10px;padding:calc(16px + var(--st)) 18px 10px;color:var(--amber2);font-weight:800}
+.vbody{flex:1;position:relative;display:flex;overflow:auto;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+#viewer-text{margin:auto;padding:28px;font-size:23px;line-height:1.45;white-space:pre-wrap;text-align:center;max-width:640px;overflow-wrap:anywhere}
+.vbody .wm{background-image:var(--wm2)}
+#viewer footer{padding:12px 18px calc(18px + var(--sb))}
+#shield{position:fixed;inset:0;z-index:95;display:none;place-items:center;background:rgba(10,11,13,.86);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px)}
+body.shielded #shield{display:grid}
+body.shielded #app,body.shielded #viewer,body.shielded .sheet-wrap{filter:blur(28px)}
+.shield-in{display:flex;flex-direction:column;align-items:center;gap:12px;color:var(--muted);font-weight:700}
+.shield-in .lg{width:64px;height:64px}
+#toast{position:fixed;left:50%;bottom:calc(96px + var(--sb));transform:translate(-50%,16px);background:var(--panel2);border:1px solid var(--line2);color:var(--text);padding:11px 16px;border-radius:13px;font-size:14px;opacity:0;pointer-events:none;transition:.22s;z-index:120;max-width:88vw;text-align:center;box-shadow:0 14px 40px -12px rgba(0,0,0,.7)}
+#toast.on{opacity:1;transform:translate(-50%,0)}
+@media print{body *{display:none!important}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ═══ BIENVENIDA / WELCOME ═══ -->
+  <section class="screen auth" id="v-welcome">
+    <div class="auth-top"><span class="grow"></span><div class="seg lang-seg"><button data-lang="es">ES</button><button data-lang="en">EN</button></div></div>
+    <div class="auth-body center">
+      <div class="logo" data-logo></div>
+      <h1 class="brand">Cifra</h1>
+      <p class="tag" data-i="tagline"></p>
+      <div class="rotor" id="hero-rotor" aria-hidden="true"><span class="cell">1</span><span class="cell">3</span><span class="cell">8</span><span class="cell">2</span><span class="cell">6</span></div>
+      <ul class="feats">
+        <li><span class="fi" data-icon="hash"></span><span data-i="feat_code"></span></li>
+        <li><span class="fi" data-icon="lock"></span><span data-i="feat_e2e"></span></li>
+        <li><span class="fi" data-icon="shield"></span><span data-i="feat_leak"></span></li>
+      </ul>
+      <div id="srv-warn" class="warn-box" hidden></div>
+    </div>
+    <div class="auth-actions">
+      <button class="btn primary" id="go-signup" data-i="btn_create"></button>
+      <button class="btn ghost" id="go-login" data-i="btn_have"></button>
+      <p class="fine" data-i="fine"></p>
+    </div>
+  </section>
+
+  <!-- ═══ CREAR CUENTA / SIGN UP ═══ -->
+  <section class="screen auth" id="v-signup">
+    <div class="auth-top"><button class="icon-btn" data-back data-al="back" data-icon="back"></button><h2 data-i="signup_title"></h2></div>
+    <div class="auth-body">
+      <div class="field"><label for="su-name" data-i="nick"></label><input class="input" id="su-name" maxlength="32" data-ph="nick_ph" autocomplete="off"></div>
+      <div class="field"><label data-i="password"></label><div id="su-pass"></div><p class="hint" data-i="pass_hint"></p></div>
+      <div class="note"><span data-icon="alert" data-size="sm"></span><span data-i="no_recovery"></span></div>
+    </div>
+    <div class="auth-actions"><button class="btn primary" id="su-go" data-i="btn_make_code"></button></div>
+  </section>
+
+  <!-- ═══ CÓDIGO CREADO / CODE CREATED ═══ -->
+  <section class="screen auth" id="v-created">
+    <div class="auth-body center">
+      <div class="eyebrow" data-i="created_title"></div>
+      <div class="rotor" id="cr-rotor"></div>
+      <p class="hint" data-i="created_share"></p>
+      <div class="cred"><div><small data-i="your_code"></small><b id="cr-code"></b></div><div><small data-i="password"></small><b id="cr-pass"></b></div></div>
+      <button class="btn ghost" id="cr-copy"><span data-icon="copy" data-size="sm"></span><span data-i="copy_both"></span></button>
+      <label class="check"><input type="checkbox" id="cr-ok"><span data-i="saved_check"></span></label>
+    </div>
+    <div class="auth-actions"><button class="btn primary" id="cr-go" data-i="enter" disabled></button></div>
+  </section>
+
+  <!-- ═══ ENTRAR / SIGN IN ═══ -->
+  <section class="screen auth" id="v-login">
+    <div class="auth-top"><button class="icon-btn" data-back data-al="back" data-icon="back"></button><h2 data-i="login_title"></h2></div>
+    <div class="auth-body">
+      <div class="field"><label data-i="your_code"></label><div id="li-code"></div></div>
+      <div class="field"><label data-i="password"></label><div id="li-pass"></div></div>
+      <div class="err" id="li-err" role="alert"></div>
+    </div>
+    <div class="auth-actions"><button class="btn primary" id="li-go" data-i="enter"></button><button class="link" id="li-new" data-i="no_account"></button></div>
+  </section>
+
+  <!-- ═══ BLOQUEO / LOCK ═══ -->
+  <section class="screen auth" id="v-lock">
+    <div class="auth-top"><span class="grow"></span><div class="seg lang-seg"><button data-lang="es">ES</button><button data-lang="en">EN</button></div></div>
+    <div class="auth-body center">
+      <div class="lock-ic" data-icon="lock"></div>
+      <h2 style="margin:4px 0 0" data-i="lock_title"></h2>
+      <p class="hint" id="lk-hello"></p>
+      <div id="lk-rotor"></div>
+      <div class="field"><div id="lk-pass"></div></div>
+      <div class="err" id="lk-err" role="alert"></div>
+    </div>
+    <div class="auth-actions"><button class="btn primary" id="lk-go" data-i="unlock"></button><button class="link" id="lk-other" data-i="other_account"></button></div>
+  </section>
+
+  <!-- ═══ APP ═══ -->
+  <section class="screen" id="v-main">
+    <aside id="list-pane">
+      <header class="bar">
+        <div class="brand-sm"><span class="lg" data-logo></span><span>Cifra</span></div>
+        <span class="grow"></span>
+        <button class="code-chip" id="my-code" data-al="copy_code"></button>
+        <button class="icon-btn" id="btn-lock" data-al="lock" data-icon="lock"></button>
+        <button class="icon-btn" id="btn-settings" data-al="settings" data-icon="sliders"></button>
+      </header>
+      <div id="net" class="net" data-i="offline"></div>
+      <div class="list" id="chat-list"></div>
+      <button class="fab" id="fab" data-al="new_chat" data-icon="plus"></button>
+    </aside>
+    <main id="chat-pane">
+      <div class="chat-empty" id="chat-empty"><div class="lg-logo" data-logo></div><p data-i="select_chat"></p></div>
+      <div class="chat" id="chat" hidden>
+        <header class="bar">
+          <button class="icon-btn only-mobile" id="chat-back" data-al="back" data-icon="back"></button>
+          <button class="chat-id" id="chat-id"><span id="chat-av"></span><span class="ct"><b id="chat-title"></b><small id="chat-sub"></small></span></button>
+          <span id="chat-flags" class="flags"></span>
+          <button class="icon-btn" id="chat-info" data-al="info" data-icon="info"></button>
+        </header>
+        <div class="msgs-wrap"><div class="msgs" id="msgs"></div><div class="wm"></div></div>
+        <div class="composer" id="composer">
+          <button class="c-btn" id="once-btn" data-al="once_btn" data-icon="once"></button>
+          <textarea id="composer-input" rows="1" maxlength="4000" data-ph="type_msg" autocomplete="off" enterkeyhint="send"></textarea>
+          <button class="c-btn send" id="send-btn" data-al="send" data-icon="send"></button>
+        </div>
+        <div class="composer-note" id="composer-note" hidden></div>
+      </div>
+    </main>
+  </section>
+</div>
+
+<div class="sheet-wrap" id="sheet"><div class="sheet-bg"></div><div class="sheet" role="dialog" aria-modal="true"><div class="grab"></div><div id="sheet-body"></div></div></div>
+<div id="viewer" role="dialog" aria-modal="true">
+  <header><span data-icon="once"></span><span data-i="once_title"></span></header>
+  <div class="vbody"><div id="viewer-text"></div><div class="wm"></div></div>
+  <footer><button class="btn primary" id="viewer-close" data-i="once_close"></button></footer>
+</div>
+<div id="shield"><div class="shield-in"><span class="lg" data-logo></span><span data-i="shield"></span></div></div>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+'use strict';
+/* ════════════════════════════════════════════════════════════════════
+   ⚙️ CONFIGURACIÓN / CONFIG
+   Déjalo vacío si el Worker sirve este archivo (recomendado).
+   Si alojas este archivo en GitHub Pages, pon aquí la URL de tu Worker:
+   Leave empty when the Worker serves this file. For GitHub Pages, put your Worker URL:
+   ════════════════════════════════════════════════════════════════════ */
+const SERVER_URL = '';   // ej. 'https://cifra.tu-usuario.workers.dev'
+
+const SERVER = (SERVER_URL || (/^https?:$/.test(location.protocol) ? location.origin : '')).replace(/\/+$/, '');
+const TTLS = [0, 300, 3600, 86400, 604800];
+
+/* ─── utilidades ─── */
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+const te = new TextEncoder(), td = new TextDecoder();
+const rnd = n => crypto.getRandomValues(new Uint8Array(n));
+const randInt = n => crypto.getRandomValues(new Uint32Array(1))[0] % n;
+const hex = u => Array.from(u, b => b.toString(16).padStart(2, '0')).join('');
+function b64(u) { u = u instanceof Uint8Array ? u : new Uint8Array(u); let s = ''; for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000)); return btoa(s); }
+function unb64(s) { const b = atob(s), u = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return u; }
+const isMobile = () => matchMedia('(max-width: 859px)').matches;
+const isTouch = () => matchMedia('(pointer: coarse)').matches;
+const xml = s => String(s).replace(/[<>&"']/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&apos;' }[c]));
+
+// Crea elementos de forma segura: el texto del usuario SIEMPRE va por textContent.
+function h(tag, attrs, ...kids) {
+  const el = document.createElement(tag);
+  if (attrs) for (const [k, v] of Object.entries(attrs)) {
+    if (v == null || v === false) continue;
+    if (k === 'class') el.className = v;
+    else if (k === 'text') el.textContent = v;
+    else if (k === 'style') el.style.cssText = v;
+    else if (k === 'dataset') Object.assign(el.dataset, v);
+    else if (k.startsWith('on') && typeof v === 'function') el.addEventListener(k.slice(2), v);
+    else el.setAttribute(k, v === true ? '' : v);
+  }
+  for (const kid of kids.flat()) if (kid != null && kid !== false) el.append(kid.nodeType ? kid : document.createTextNode(String(kid)));
+  return el;
+}
+
+const ICONS = {
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+  sliders: '<path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/>',
+  back: '<path d="M15 18l-6-6 6-6"/>',
+  info: '<circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/>',
+  send: '<path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>',
+  eye: '<path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/>',
+  eyeOff: '<path d="M17.9 17.9A10 10 0 0 1 12 20C5 20 1 12 1 12a18 18 0 0 1 5.1-5.9M9.9 4.2A9 9 0 0 1 12 4c7 0 11 8 11 8a18 18 0 0 1-2.2 3.2M1 1l22 22M14.1 14.1a3 3 0 1 1-4.2-4.2"/>',
+  once: '<circle cx="12" cy="12" r="9" stroke-dasharray="3 2.2"/><path d="M10.5 9.5L12.5 8v8"/>',
+  copy: '<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/>',
+  share: '<path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7M16 6l-4-4-4 4M12 2v14"/>',
+  userPlus: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/>',
+  users: '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/>',
+  door: '<path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3"/>',
+  shield: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/>',
+  hash: '<path d="M4 9h16M4 15h16M10 3L8 21M16 3l-2 18"/>',
+  trash: '<path d="M3 6h18M8 6V4h8v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>',
+  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  refresh: '<path d="M21 12a9 9 0 1 1-2.6-6.4L21 8M21 3v5h-5"/>',
+  x: '<path d="M18 6L6 18M6 6l12 12"/>',
+  key: '<circle cx="7.5" cy="15.5" r="4.5"/><path d="M10.7 12.3L21 2M16 7l3 3M18 5l2 2"/>',
+  logout: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>',
+  alert: '<path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0zM12 9v4M12 17h.01"/>',
+  check: '<path d="M20 6L9 17l-5-5"/>',
+  ban: '<circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/>',
+  zap: '<path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>',
+};
+function icon(name, size) {
+  const s = h('span', { class: 'ic-svg' + (size ? ' ' + size : '') });
+  s.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + ICONS[name] + '</svg>';
+  return s;
+}
+const LOGO_PATHS = '<path d="M15 7h34a9 9 0 0 1 9 9v23a9 9 0 0 1-9 9H31l-12.5 9.5c-.9.7-2.1 0-2.1-1.1V48H15a9 9 0 0 1-9-9V16a9 9 0 0 1 9-9z" fill="#ffb547"/>'
+  + '<rect x="14" y="18" width="10.5" height="19" rx="3" fill="#241706"/><rect x="26.75" y="18" width="10.5" height="19" rx="3" fill="#241706"/><rect x="39.5" y="18" width="10.5" height="19" rx="3" fill="#241706"/>'
+  + '<rect x="16" y="26.4" width="6.5" height="2.2" rx="1.1" fill="#ffd18a"/><rect x="28.75" y="26.4" width="6.5" height="2.2" rx="1.1" fill="#ffd18a"/><rect x="41.5" y="26.4" width="6.5" height="2.2" rx="1.1" fill="#ffd18a"/>';
+const LOGO = '<svg viewBox="0 0 64 64" aria-hidden="true">' + LOGO_PATHS + '</svg>';
+
+/* ─── idiomas / languages ─── */
+const T = {
+  es: {
+    tagline: 'Chats cifrados. Sin número de teléfono.',
+    feat_code: 'Tu identidad es un código de 5 dígitos',
+    feat_e2e: 'Cifrado de extremo a extremo: ni el servidor lee tus mensajes',
+    feat_leak: 'Anti-filtraciones: marca de agua, sin copiar, mensajes que se borran',
+    btn_create: 'Crear cuenta', btn_have: 'Ya tengo código',
+    fine: 'Sin teléfono, sin correo, sin rastreo.',
+    back: 'Atrás',
+    signup_title: 'Crear cuenta',
+    nick: 'Apodo (opcional)', nick_ph: 'Cómo te verán tus contactos',
+    password: 'Contraseña',
+    pass_hint: 'Mínimo 4 caracteres. Más larga = más segura.',
+    generate: 'Generar', show: 'Mostrar',
+    str_1: 'Corta', str_2: 'Buena', str_3: 'Fuerte',
+    no_recovery: 'Sin teléfono ni correo no hay forma de recuperar la cuenta. Guarda tu código y tu contraseña.',
+    btn_make_code: 'Crear mi código', making_keys: 'Generando llaves…',
+    created_title: 'Este es tu código',
+    created_share: 'Compártelo para que te agreguen. La contraseña es solo tuya.',
+    your_code: 'Tu código',
+    copy_both: 'Copiar código y contraseña',
+    creds_text: 'Mi cuenta de Cifra\nCódigo: {code}\nContraseña: {pass}',
+    saved_check: 'Ya los guardé en un lugar seguro',
+    enter: 'Entrar', login_title: 'Entrar', no_account: '¿No tienes código? Crea uno',
+    lock_title: 'Cifra está bloqueada', hello: 'Hola, {n}', unlock: 'Desbloquear',
+    other_account: 'Usar otra cuenta', unlocking: 'Descifrando…',
+    err_code5: 'Escribe los 5 dígitos de tu código', err_code8: 'El código del grupo tiene 8 dígitos',
+    err_pass4: 'La contraseña necesita al menos 4 caracteres',
+    err_bad_login: 'Código o contraseña incorrectos', err_bad_pass: 'Contraseña incorrecta',
+    err_left: 'te quedan {n} intentos', err_locked: 'Demasiados intentos. Espera {t}.', err_rate: 'Vas muy rápido. Espera {t}.',
+    err_net: 'No hay conexión con el servidor', err_no_server: 'Falta poner la URL del servidor (SERVER_URL) en el archivo',
+    err_config: 'El servidor no está configurado (falta PEPPER o la base de datos)',
+    err_server: 'Algo falló en el servidor', err_codes: 'Ya no quedan códigos disponibles',
+    err_too_long: 'El mensaje es demasiado largo', err_keys: 'No se pudieron descifrar tus llaves',
+    err_crypto: 'Este navegador no permite cifrado. Abre la app desde https://',
+    empty_t: 'Aún no tienes chats',
+    empty_d: 'Comparte tu código para que te agreguen, o toca + para agregar a alguien.',
+    share_code: 'Compartir mi código', copy_code: 'Copiar mi código',
+    my_code_text: 'Agrégame en Cifra 🔐 Mi código: {code}',
+    new_chat: 'Nuevo chat',
+    add_contact: 'Agregar por código', add_contact_d: 'Chat privado 1 a 1',
+    add_help: 'Pide a tu contacto su código de 5 dígitos.',
+    create_group: 'Crear grupo', create_group_d: 'Código de 8 dígitos + contraseña',
+    join_group: 'Unirse a un grupo', join_group_d: 'Con el código y la contraseña',
+    join_help: 'Escribe el código de 8 dígitos y la contraseña que te compartieron.',
+    start_chat: 'Iniciar chat', no_user: 'Ese código no existe', self_code: 'Ese es tu propio código',
+    you_blocked: 'Bloqueaste este código. Desbloquéalo para escribirle.',
+    group_name: 'Nombre del grupo', group_name_ph: 'Ej. Los del salón', group_pass: 'Contraseña del grupo',
+    create: 'Crear grupo', group_ready: '¡Grupo creado!',
+    group_ready_d: 'Comparte el código y la contraseña con quien quieras invitar. El servidor no conoce ninguno de los dos.',
+    group_code: 'Código del grupo',
+    invite: 'Únete a mi grupo "{name}" en Cifra 🔐\nCódigo: {code}\nContraseña: {pass}',
+    copy_invite: 'Copiar invitación', share: 'Compartir', open_chat: 'Abrir chat', join: 'Unirse',
+    bad_group: 'Código o contraseña del grupo incorrectos', group_full: 'El grupo está lleno',
+    deriving: 'Calculando llave…',
+    type_msg: 'Mensaje cifrado', type_once: 'Mensaje de una vez', send: 'Enviar',
+    once_btn: 'Ver una vez', once_on_toast: 'Ver una vez: se podrá abrir una sola vez',
+    e2e_banner: 'Cifrado de extremo a extremo. Ni Cifra puede leer estos mensajes.', e2e_short: 'cifrado',
+    stealth_tip: 'Modo sigilo: mantén presionado un mensaje para leerlo',
+    once_tap: 'Ver una vez · toca para abrir', once_sent: 'Mensaje de una vez',
+    once_opened: 'Abierto', once_opened_n: 'Abierto por {n}',
+    once_title: 'Mensaje de una vez', once_close: 'Cerrar · ya no podrás volver a verlo',
+    deleted_msg: 'Mensaje eliminado', cant_decrypt: 'No se pudo descifrar',
+    unsend: 'Borrar para todos', retry: 'Reintentar', discard: 'Descartar', failed: 'No se envió',
+    load_older: 'Cargar anteriores', today: 'Hoy', yesterday: 'Ayer',
+    members: '{n} miembros', member1: '1 miembro', you: 'Tú',
+    new_chat_pv: 'Chat nuevo', encrypted_msg: 'Mensaje cifrado', group: 'Grupo',
+    info: 'Información del chat', safety: 'Código de seguridad',
+    safety_d: 'Compáralo en persona con tu contacto: si coincide, nadie está interceptando su chat.',
+    protections: 'Protecciones de este chat',
+    p_e2e: 'Cifrado de extremo a extremo', p_wm: 'Marca de agua con el código de quien mira',
+    p_copy: 'No se puede copiar ni seleccionar el texto', p_shield: 'Se oculta al salir de la app',
+    p_shot: 'Aviso de capturas de pantalla (en PC)',
+    disappearing: 'Mensajes temporales', disappearing_d: 'Se aplica a todos en este chat.',
+    ttl_0: 'No', ttl_300: '5 min', ttl_3600: '1 hora', ttl_86400: '24 horas', ttl_604800: '7 días',
+    stealth: 'Modo sigilo', stealth_d: 'Mensajes borrosos hasta mantenerlos presionados (para todos)',
+    members_t: 'Miembros',
+    clear_chat: 'Vaciar chat (solo para mí)', clear_q: '¿Vaciar este chat? Los mensajes se borran solo para ti.',
+    delete_chat: 'Eliminar chat', delete_chat_q: '¿Eliminar este chat? Desaparece de tu lista y su historial se borra para ti.',
+    leave_group: 'Salir del grupo', leave_q: '¿Salir del grupo? Para volver necesitarás el código y la contraseña.',
+    block: 'Bloquear', unblock: 'Desbloquear', blocked_t: 'Código bloqueado', unblocked_t: 'Código desbloqueado',
+    cant_send: 'No se pudo enviar el mensaje', peer_gone: 'Esta cuenta ya no existe',
+    sys_create: '{n} creó el grupo', sys_create_me: 'Creaste el grupo',
+    sys_join: '{n} se unió', sys_join_me: 'Te uniste al grupo',
+    sys_leave: '{n} salió del grupo', sys_leave_me: 'Saliste del grupo',
+    sys_ttl_on: '{n} activó mensajes temporales: {t}', sys_ttl_on_me: 'Activaste mensajes temporales: {t}',
+    sys_ttl_off: '{n} desactivó los mensajes temporales', sys_ttl_off_me: 'Desactivaste los mensajes temporales',
+    sys_st_on: '{n} activó el modo sigilo', sys_st_on_me: 'Activaste el modo sigilo',
+    sys_st_off: '{n} desactivó el modo sigilo', sys_st_off_me: 'Desactivaste el modo sigilo',
+    sys_shot: '⚠️ {n} tomó una captura de pantalla', sys_shot_me: '⚠️ Tomaste una captura de pantalla',
+    settings: 'Ajustes', profile: 'Apodo', save: 'Guardar', saved: 'Guardado',
+    language: 'Idioma', sounds: 'Sonidos',
+    previews: 'Vista previa en la lista', previews_d: 'Apagada, la lista solo dice "Mensaje cifrado"',
+    autolock: 'Bloqueo automático', autolock_d: 'Pide tu contraseña al volver a la app.',
+    al_0: 'Al salir', al_60: '1 min', al_300: '5 min', al_900: '15 min',
+    security: 'Seguridad', change_pass: 'Cambiar contraseña',
+    current_pass: 'Contraseña actual', new_pass: 'Nueva contraseña', pass_changed: 'Contraseña actualizada',
+    logout_others: 'Cerrar sesión en otros dispositivos', logged_out_others: 'Listo: se cerraron los otros dispositivos',
+    logout: 'Cerrar sesión y olvidar este dispositivo',
+    panic: 'Botón de pánico', panic_d: 'Mantén presionado: borra todo de este dispositivo y sale a Google.',
+    delete_account: 'Borrar mi cuenta', delete_account_d: 'Borra tus chats privados y tu código para siempre. No se puede deshacer.',
+    confirm_pass: 'Escribe tu contraseña para confirmar', danger: 'Zona de peligro',
+    about: 'Cómo funciona',
+    about_1: 'Tu contraseña nunca sale del teléfono: se convierte en llaves con PBKDF2 (600 000 rondas).',
+    about_2: 'Chats privados: llaves ECDH P-256 + AES-256-GCM. Solo tú y tu contacto pueden leerlos.',
+    about_3: 'Grupos: la llave sale del código + la contraseña. El servidor ni siquiera conoce el código.',
+    about_4: 'El servidor solo guarda texto cifrado, bloquea tras 5 intentos fallidos y borra los mensajes temporales.',
+    about_5: 'Límite honesto: nadie puede impedir una foto con otra cámara. Por eso la marca de agua muestra quién miraba.',
+    cancel: 'Cancelar', confirm: 'Confirmar', close: 'Cerrar', copied: 'Copiado',
+    session_closed: 'Tu sesión se cerró. Vuelve a entrar.', offline: 'Reconectando…',
+    lock: 'Bloquear', shield: 'Cifra protegida', select_chat: 'Elige un chat o crea uno nuevo',
+    version: 'Cifra v1 · creado por Ian Amaro',
+  },
+  en: {
+    tagline: 'Encrypted chats. No phone number.',
+    feat_code: 'Your identity is a 5-digit code',
+    feat_e2e: 'End-to-end encrypted: not even the server can read your messages',
+    feat_leak: 'Anti-leak: watermark, no copying, messages that disappear',
+    btn_create: 'Create account', btn_have: 'I have a code',
+    fine: 'No phone, no email, no tracking.',
+    back: 'Back',
+    signup_title: 'Create account',
+    nick: 'Nickname (optional)', nick_ph: 'How your contacts will see you',
+    password: 'Password',
+    pass_hint: 'At least 4 characters. Longer = safer.',
+    generate: 'Generate', show: 'Show',
+    str_1: 'Short', str_2: 'Good', str_3: 'Strong',
+    no_recovery: 'With no phone or email there is no way to recover the account. Keep your code and password safe.',
+    btn_make_code: 'Create my code', making_keys: 'Generating keys…',
+    created_title: 'This is your code',
+    created_share: 'Share it so people can add you. The password is only yours.',
+    your_code: 'Your code',
+    copy_both: 'Copy code and password',
+    creds_text: 'My Cifra account\nCode: {code}\nPassword: {pass}',
+    saved_check: 'I saved them somewhere safe',
+    enter: 'Enter', login_title: 'Sign in', no_account: 'No code yet? Create one',
+    lock_title: 'Cifra is locked', hello: 'Hi, {n}', unlock: 'Unlock',
+    other_account: 'Use another account', unlocking: 'Decrypting…',
+    err_code5: 'Type the 5 digits of your code', err_code8: 'The group code has 8 digits',
+    err_pass4: 'The password needs at least 4 characters',
+    err_bad_login: 'Wrong code or password', err_bad_pass: 'Wrong password',
+    err_left: '{n} attempts left', err_locked: 'Too many attempts. Wait {t}.', err_rate: 'Slow down. Wait {t}.',
+    err_net: "Can't reach the server", err_no_server: 'The server URL (SERVER_URL) is missing in the file',
+    err_config: 'The server is not configured (PEPPER or the database is missing)',
+    err_server: 'Something went wrong on the server', err_codes: 'No codes left',
+    err_too_long: 'The message is too long', err_keys: "Couldn't decrypt your keys",
+    err_crypto: "This browser doesn't allow encryption. Open the app from https://",
+    empty_t: 'No chats yet',
+    empty_d: 'Share your code so people can add you, or tap + to add someone.',
+    share_code: 'Share my code', copy_code: 'Copy my code',
+    my_code_text: 'Add me on Cifra 🔐 My code: {code}',
+    new_chat: 'New chat',
+    add_contact: 'Add by code', add_contact_d: 'Private 1-to-1 chat',
+    add_help: 'Ask your contact for their 5-digit code.',
+    create_group: 'Create group', create_group_d: '8-digit code + password',
+    join_group: 'Join a group', join_group_d: 'With the code and password',
+    join_help: 'Type the 8-digit code and the password you were given.',
+    start_chat: 'Start chat', no_user: "That code doesn't exist", self_code: "That's your own code",
+    you_blocked: 'You blocked this code. Unblock it to write to them.',
+    group_name: 'Group name', group_name_ph: 'E.g. Weekend crew', group_pass: 'Group password',
+    create: 'Create group', group_ready: 'Group created!',
+    group_ready_d: "Share the code and password with anyone you want to invite. The server knows neither of them.",
+    group_code: 'Group code',
+    invite: 'Join my group "{name}" on Cifra 🔐\nCode: {code}\nPassword: {pass}',
+    copy_invite: 'Copy invite', share: 'Share', open_chat: 'Open chat', join: 'Join',
+    bad_group: 'Wrong group code or password', group_full: 'The group is full',
+    deriving: 'Computing key…',
+    type_msg: 'Encrypted message', type_once: 'View-once message', send: 'Send',
+    once_btn: 'View once', once_on_toast: 'View once: it can be opened only one time',
+    e2e_banner: 'End-to-end encrypted. Not even Cifra can read these messages.', e2e_short: 'encrypted',
+    stealth_tip: 'Stealth mode: press and hold a message to read it',
+    once_tap: 'View once · tap to open', once_sent: 'View-once message',
+    once_opened: 'Opened', once_opened_n: 'Opened by {n}',
+    once_title: 'View-once message', once_close: "Close · you won't see it again",
+    deleted_msg: 'Message deleted', cant_decrypt: "Couldn't decrypt",
+    unsend: 'Delete for everyone', retry: 'Retry', discard: 'Discard', failed: 'Not sent',
+    load_older: 'Load earlier', today: 'Today', yesterday: 'Yesterday',
+    members: '{n} members', member1: '1 member', you: 'You',
+    new_chat_pv: 'New chat', encrypted_msg: 'Encrypted message', group: 'Group',
+    info: 'Chat info', safety: 'Safety code',
+    safety_d: 'Compare it in person with your contact: if it matches, nobody is intercepting your chat.',
+    protections: "This chat's protections",
+    p_e2e: 'End-to-end encryption', p_wm: "Watermark with the viewer's code",
+    p_copy: "Text can't be copied or selected", p_shield: 'Hidden when you leave the app',
+    p_shot: 'Screenshot alerts (on PC)',
+    disappearing: 'Disappearing messages', disappearing_d: 'Applies to everyone in this chat.',
+    ttl_0: 'Off', ttl_300: '5 min', ttl_3600: '1 hour', ttl_86400: '24 hours', ttl_604800: '7 days',
+    stealth: 'Stealth mode', stealth_d: 'Messages stay blurred until pressed and held (for everyone)',
+    members_t: 'Members',
+    clear_chat: 'Clear chat (just for me)', clear_q: 'Clear this chat? Messages are removed only for you.',
+    delete_chat: 'Delete chat', delete_chat_q: 'Delete this chat? It leaves your list and its history is removed for you.',
+    leave_group: 'Leave group', leave_q: "Leave the group? You'll need the code and password to come back.",
+    block: 'Block', unblock: 'Unblock', blocked_t: 'Code blocked', unblocked_t: 'Code unblocked',
+    cant_send: "Couldn't send the message", peer_gone: 'This account no longer exists',
+    sys_create: '{n} created the group', sys_create_me: 'You created the group',
+    sys_join: '{n} joined', sys_join_me: 'You joined the group',
+    sys_leave: '{n} left the group', sys_leave_me: 'You left the group',
+    sys_ttl_on: '{n} turned on disappearing messages: {t}', sys_ttl_on_me: 'You turned on disappearing messages: {t}',
+    sys_ttl_off: '{n} turned off disappearing messages', sys_ttl_off_me: 'You turned off disappearing messages',
+    sys_st_on: '{n} turned on stealth mode', sys_st_on_me: 'You turned on stealth mode',
+    sys_st_off: '{n} turned off stealth mode', sys_st_off_me: 'You turned off stealth mode',
+    sys_shot: '⚠️ {n} took a screenshot', sys_shot_me: '⚠️ You took a screenshot',
+    settings: 'Settings', profile: 'Nickname', save: 'Save', saved: 'Saved',
+    language: 'Language', sounds: 'Sounds',
+    previews: 'Previews in the chat list', previews_d: 'When off, the list only says "Encrypted message"',
+    autolock: 'Auto-lock', autolock_d: 'Asks for your password when you come back to the app.',
+    al_0: 'On leave', al_60: '1 min', al_300: '5 min', al_900: '15 min',
+    security: 'Security', change_pass: 'Change password',
+    current_pass: 'Current password', new_pass: 'New password', pass_changed: 'Password updated',
+    logout_others: 'Sign out other devices', logged_out_others: 'Done: other devices were signed out',
+    logout: 'Sign out and forget this device',
+    panic: 'Panic button', panic_d: 'Press and hold: wipes this device and exits to Google.',
+    delete_account: 'Delete my account', delete_account_d: 'Deletes your private chats and your code forever. This cannot be undone.',
+    confirm_pass: 'Type your password to confirm', danger: 'Danger zone',
+    about: 'How it works',
+    about_1: 'Your password never leaves the phone: it becomes keys with PBKDF2 (600,000 rounds).',
+    about_2: 'Private chats: ECDH P-256 keys + AES-256-GCM. Only you and your contact can read them.',
+    about_3: "Groups: the key comes from the code + password. The server doesn't even know the code.",
+    about_4: 'The server only stores ciphertext, locks after 5 failed attempts and deletes disappearing messages.',
+    about_5: "Honest limit: nobody can stop a photo taken with another camera. That's why the watermark shows who was looking.",
+    cancel: 'Cancel', confirm: 'Confirm', close: 'Close', copied: 'Copied',
+    session_closed: 'Your session was closed. Please sign in again.', offline: 'Reconnecting…',
+    lock: 'Lock', shield: 'Cifra protected', select_chat: 'Pick a chat or start a new one',
+    version: 'Cifra v1 · made by Ian Amaro',
+  },
+};
+
+/* ─── preferencias y estado / prefs & state ─── */
+const store = {
+  get() { try { return JSON.parse(localStorage.getItem('cifra.v1') || '{}'); } catch { return {}; } },
+  set(p) { try { localStorage.setItem('cifra.v1', JSON.stringify(Object.assign(this.get(), p))); } catch { /* private mode */ } },
+  wipe() { try { Object.keys(localStorage).filter(k => k.startsWith('cifra.')).forEach(k => localStorage.removeItem(k)); sessionStorage.clear(); } catch { /* */ } },
+};
+const prefs = Object.assign({ lang: null, sounds: true, previews: true, autolock: 60 }, store.get().prefs || {});
+const savePrefs = () => store.set({ prefs });
+let LANG = prefs.lang || ((navigator.language || 'es').toLowerCase().startsWith('es') ? 'es' : 'en');
+function t(k, v) {
+  let s = (T[LANG] && T[LANG][k]) ?? T.es[k] ?? k;
+  if (v) for (const [a, b] of Object.entries(v)) s = s.split('{' + a + '}').join(String(b));
+  return s;
+}
+const locale = () => (LANG === 'es' ? 'es-MX' : 'en-US');
+function applyI18n() {
+  document.documentElement.lang = LANG;
+  $$('[data-i]').forEach(el => { el.textContent = t(el.dataset.i); });
+  $$('[data-ph]').forEach(el => { el.placeholder = t(el.dataset.ph); });
+  $$('[data-al]').forEach(el => { el.setAttribute('aria-label', t(el.dataset.al)); el.title = t(el.dataset.al); });
+  $$('.lang-seg button').forEach(b => b.classList.toggle('on', b.dataset.lang === LANG));
+}
+
+// Las llaves solo viven en memoria: al bloquear se borran.  Keys live in memory only.
+const S = { me: null, token: null, acct: null, priv: null, encPriv: null, rooms: new Map(), blocked: new Set(), rev: 0, current: null, once: false, realtime: true, loading: false };
+let pendingSession = null;
+
+/* ─── sonidos (Web Audio) ─── */
+const SND = {
+  ctx: null,
+  play(kind) {
+    if (!prefs.sounds) return;
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      const ctx = this.ctx || (this.ctx = new AC());
+      if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+      const t0 = ctx.currentTime;
+      const tone = (f, d, type = 'sine', g = 0.05, at = 0, f2 = 0) => {
+        const o = ctx.createOscillator(), v = ctx.createGain();
+        o.type = type;
+        o.frequency.setValueAtTime(f, t0 + at);
+        if (f2) o.frequency.exponentialRampToValueAtTime(f2, t0 + at + d);
+        v.gain.setValueAtTime(0.0001, t0 + at);
+        v.gain.exponentialRampToValueAtTime(g, t0 + at + 0.012);
+        v.gain.exponentialRampToValueAtTime(0.0001, t0 + at + d);
+        o.connect(v).connect(ctx.destination);
+        o.start(t0 + at); o.stop(t0 + at + d + 0.03);
+      };
+      const fx = {
+        send: () => tone(760, 0.09, 'triangle', 0.05, 0, 1150),
+        recv: () => { tone(660, 0.09, 'sine', 0.06); tone(990, 0.13, 'sine', 0.05, 0.08); },
+        tick: () => tone(1500, 0.025, 'square', 0.012),
+        unlock: () => { tone(180, 0.05, 'square', 0.03); tone(260, 0.06, 'square', 0.025, 0.06); tone(520, 0.14, 'triangle', 0.05, 0.12); },
+        lock: () => { tone(420, 0.06, 'triangle', 0.04); tone(200, 0.12, 'square', 0.03, 0.06); },
+        err: () => tone(150, 0.2, 'sawtooth', 0.035, 0, 110),
+        open: () => tone(520, 0.2, 'sine', 0.05, 0, 880),
+      };
+      if (fx[kind]) fx[kind]();
+    } catch { /* audio not available */ }
+  },
+};
+
+/* ─── cifrado / crypto (WebCrypto) ───
+   cuenta:  PBKDF2-SHA256(contraseña, sal, 600k) → HKDF → "auth" (se envía) y llave de cuenta (nunca sale)
+   privado: ECDH P-256 entre los dos → HKDF → AES-256-GCM
+   grupo:   PBKDF2(código|contraseña) → HKDF → id del grupo (lo único que ve el servidor) y llave AES */
+const C = {
+  ITER: 600000, GITER: 300000,
+  async pbkdf2(pass, salt, iter) {
+    const k = await crypto.subtle.importKey('raw', te.encode(pass), 'PBKDF2', false, ['deriveBits']);
+    return new Uint8Array(await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt, iterations: iter }, k, 256));
+  },
+  async hkdf(ikm, info, bits = 256) {
+    const k = await crypto.subtle.importKey('raw', ikm, 'HKDF', false, ['deriveBits']);
+    return new Uint8Array(await crypto.subtle.deriveBits({ name: 'HKDF', hash: 'SHA-256', salt: new Uint8Array(32), info: te.encode(info) }, k, bits));
+  },
+  aes: raw => crypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['encrypt', 'decrypt']),
+  async seal(key, data, ad) {
+    const iv = rnd(12);
+    const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv, additionalData: te.encode(ad) }, key, typeof data === 'string' ? te.encode(data) : data);
+    return b64(iv) + '.' + b64(ct);
+  },
+  async open(key, sealed, ad) {
+    const i = sealed.indexOf('.');
+    return new Uint8Array(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: unb64(sealed.slice(0, i)), additionalData: te.encode(ad) }, key, unb64(sealed.slice(i + 1))));
+  },
+  async openText(key, sealed, ad) { return td.decode(await this.open(key, sealed, ad)); },
+  async account(pass, salt, iter) {
+    const m = await this.pbkdf2(pass, unb64(salt), iter);
+    const out = { auth: b64(await this.hkdf(m, 'cifra/auth/v1')), acct: await this.aes(await this.hkdf(m, 'cifra/acct/v1')) };
+    m.fill(0);
+    return out;
+  },
+  async newKeypair() {
+    const kp = await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits']);
+    return { pub: b64(await crypto.subtle.exportKey('raw', kp.publicKey)), pkcs8: new Uint8Array(await crypto.subtle.exportKey('pkcs8', kp.privateKey)) };
+  },
+  importPriv: pk => crypto.subtle.importKey('pkcs8', pk, { name: 'ECDH', namedCurve: 'P-256' }, false, ['deriveBits']),
+  async dmKey(priv, pub, room) {
+    const p = await crypto.subtle.importKey('raw', unb64(pub), { name: 'ECDH', namedCurve: 'P-256' }, false, []);
+    const shared = new Uint8Array(await crypto.subtle.deriveBits({ name: 'ECDH', public: p }, priv, 256));
+    const k = await this.aes(await this.hkdf(shared, 'cifra/dm/v1|' + room));
+    shared.fill(0);
+    return k;
+  },
+  async group(code, pass) { return this.groupFrom(await this.pbkdf2(code + '|' + pass, te.encode('cifra/group/v1'), this.GITER)); },
+  async groupFrom(master) {
+    return { master, gid: 'g:' + hex(await this.hkdf(master, 'cifra/gid/v1', 128)), key: await this.aes(await this.hkdf(master, 'cifra/gkey/v1')) };
+  },
+  async fingerprint(a, b, room) {
+    const d = new Uint8Array(await crypto.subtle.digest('SHA-256', te.encode([a, b].sort().join('|') + '|' + room)));
+    const out = [];
+    for (let i = 0; i < 30; i += 5) { let n = 0; for (let j = 0; j < 5; j++) n = n * 256 + d[i + j]; out.push(String(n % 100000).padStart(5, '0')); }
+    return out.join(' ');
+  },
+};
+const aad = (room, from, kind) => 'cifra/m|' + room + '|' + from + '|' + kind;
+const PASS_CH = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+function genPass(n = 4) {
+  for (;;) {
+    const s = Array.from(crypto.getRandomValues(new Uint32Array(n)), x => PASS_CH[x % PASS_CH.length]).join('');
+    if (/\d/.test(s) && /[a-z]/i.test(s)) return s;
+  }
+}
+
+/* ─── API ─── */
+class ApiError extends Error { constructor(code, status, data) { super(code); this.code = code; this.status = status || 0; this.data = data || {}; } }
+async function api(method, path, body) {
+  if (!SERVER) throw new ApiError('no_server');
+  const headers = {};
+  if (body) headers['Content-Type'] = 'application/json';
+  if (S.token) headers.Authorization = 'Bearer ' + S.token;
+  let res;
+  try { res = await fetch(SERVER + path, { method, headers, body: body ? JSON.stringify(body) : undefined, cache: 'no-store' }); }
+  catch { throw new ApiError('network'); }
+  let data = {};
+  try { data = await res.json(); } catch { /* not json */ }
+  if (!res.ok) {
+    const e = new ApiError(data.error || (res.status >= 500 ? 'server_error' : 'network'), res.status, data);
+    if (e.code === 'unauthorized' && S.token) sessionEnded();
+    throw e;
+  }
+  return data;
+}
+const fmtWait = s => { s = +s || 60; return s >= 60 ? Math.ceil(s / 60) + ' min' : s + ' s'; };
+function errText(e) {
+  const c = e && e.code;
+  if (c === 'locked') return t('err_locked', { t: fmtWait(e.data.wait) });
+  if (c === 'rate_limited') return t('err_rate', { t: fmtWait(e.data.wait) });
+  const map = {
+    network: 'err_net', no_server: 'err_no_server', server_misconfigured: 'err_config', no_database: 'err_config',
+    bad_login: 'err_bad_login', bad_pass: 'err_bad_pass', no_user: 'no_user', self: 'self_code', bad_group: 'bad_group',
+    blocked: 'cant_send', you_blocked: 'you_blocked', full: 'group_full', codes_exhausted: 'err_codes',
+    too_large: 'err_too_long', bad_keys: 'err_keys',
+  };
+  let s = t(map[c] || 'err_server');
+  if ((c === 'bad_login' || c === 'bad_pass') && e.data.left != null && e.data.left <= 3) s += ' · ' + t('err_left', { n: e.data.left });
+  return s;
+}
+
+/* ─── cuenta / account ─── */
+async function signupFlow(name, pass) {
+  const salt = b64(rnd(16));
+  const { auth, acct } = await C.account(pass, salt, C.ITER);
+  const kp = await C.newKeypair();
+  const priv = await C.seal(acct, kp.pkcs8, 'cifra/priv');
+  const r = await api('POST', '/api/signup', { name, salt, iter: C.ITER, auth, pub: kp.pub, priv });
+  const privKey = await C.importPriv(kp.pkcs8);
+  kp.pkcs8.fill(0);
+  return { me: r.me, token: r.token, acct, privKey, priv };
+}
+
+async function loginFlow(code, pass) {
+  const s = await api('GET', '/api/salt?code=' + encodeURIComponent(code));
+  const { auth, acct } = await C.account(pass, s.salt, s.iter);
+  const r = await api('POST', '/api/login', { code, auth });
+  let pk;
+  try { pk = await C.open(acct, r.priv, 'cifra/priv'); } catch { throw new ApiError('bad_keys'); }
+  const privKey = await C.importPriv(pk);
+  pk.fill(0);
+  return { me: r.me, token: r.token, acct, privKey, priv: r.priv };
+}
+
+async function startSession(s) {
+  Object.assign(S, { me: s.me, token: s.token, acct: s.acct, priv: s.privKey, encPriv: s.priv, rooms: new Map(), blocked: new Set(), rev: 0, current: null, loading: true });
+  store.set({ last: { code: s.me.code, name: s.me.name || '' } });
+  setWatermark();
+  $('#my-code').textContent = '#' + s.me.code;
+  closeChat(true);
+  show('main');
+  renderList();
+  try { await loadRooms(true); } catch (e) { if (S.token) toast(errText(e)); }
+  S.loading = false;
+  if (!S.token) return;
+  renderList();
+  RT.start();
+  SND.play('unlock');
+}
+
+// Bloquear: borra llaves y mensajes de la memoria. La próxima vez pide la contraseña.
+function lock(msg) {
+  if (!S.token) return;
+  const tok = S.token;
+  try { fetch(SERVER + '/api/logout', { method: 'POST', headers: { Authorization: 'Bearer ' + tok }, keepalive: true }).catch(() => {}); } catch { /* */ }
+  wipeSession();
+  showLock(msg);
+  SND.play('lock');
+}
+function sessionEnded() {
+  if (!S.token) return;
+  wipeSession();
+  showLock(t('session_closed'));
+}
+function wipeSession() {
+  RT.stop();
+  Object.assign(S, { me: null, token: null, acct: null, priv: null, encPriv: null, rooms: new Map(), blocked: new Set(), rev: 0, current: null, once: false, loading: false });
+  closeViewer();
+  Sheet.close();
+  closeChat(true);
+  $('#chat-list').replaceChildren();
+  $('#composer-input').value = '';
+  document.body.classList.remove('shielded');
+}
+
+/* ─── salas y mensajes / rooms & messages ─── */
+let roomsP = null, roomsAgain = false, roomsT = 0;
+function scheduleRooms() { clearTimeout(roomsT); roomsT = setTimeout(() => loadRooms().catch(() => {}), 300); }
+function loadRooms(first) {
+  if (roomsP) { roomsAgain = true; return roomsP; }
+  roomsP = (async () => {
+    try { await doLoadRooms(first); } finally { roomsP = null; }
+    if (roomsAgain) { roomsAgain = false; await loadRooms(); }
+  })();
+  return roomsP;
+}
+
+async function doLoadRooms(first) {
+  if (!S.token) return;
+  const token = S.token;
+  const r = await api('GET', '/api/rooms');
+  if (S.token !== token) return;
+  if (first) S.rev = r.rev;
+  S.blocked = new Set(r.blocked || []);
+  const seen = new Set();
+  for (const x of r.rooms) {
+    seen.add(x.id);
+    let room = S.rooms.get(x.id);
+    if (!room) { room = { id: x.id, kind: x.kind, msgs: new Map(), pending: [], loaded: false, more: false, draft: '' }; S.rooms.set(x.id, room); }
+    room.ttl = x.ttl; room.stealth = !!x.stealth; room.by = x.by; room.at = x.at;
+    if (first || S.current !== x.id) room.unread = x.unread;
+    try {
+      if (x.kind === 'dm') {
+        room.peer = x.peer;
+        if (!room.key && x.peer.pub) {
+          room.key = await C.dmKey(S.priv, x.peer.pub, x.id);
+          room.safety = await C.fingerprint(S.me.pub, x.peer.pub, x.id);
+        }
+      } else {
+        room.members = x.members || [];
+        if (!room.key) {
+          const sec = JSON.parse(await C.openText(S.acct, x.secret, 'cifra/g|' + x.id));
+          const g = await C.groupFrom(unb64(sec.k));
+          if (g.gid !== x.id) throw new Error('group id mismatch');
+          room.key = g.key; room.sec = sec;
+        }
+        if (x.meta) room.name = JSON.parse(await C.openText(room.key, x.meta, 'cifra/meta|' + x.id)).name;
+      }
+      room.bad = !room.key && x.kind === 'group';
+    } catch (e) { console.warn('room', x.id, e); room.bad = !room.key; }
+    if (x.last && room.key) {
+      const m = await decryptRow(room, x.last);
+      const prev = room.msgs.get(m.id);
+      if (prev) keepLocal(prev, m);
+      room.msgs.set(m.id, m);
+      if (!room.last || m.id >= room.last.id) room.last = m;
+    } else if (!x.last) room.last = null;
+    if (S.token !== token) return;
+  }
+  for (const id of [...S.rooms.keys()]) if (!seen.has(id)) { S.rooms.delete(id); if (S.current === id) closeChat(); }
+  renderList();
+  if (S.current) { renderChatHeader(); renderMessages(); }
+}
+
+const keepLocal = (prev, m) => { if (prev.kind === 'once' && m.kind === 'once' && prev.opened) { m.opened = true; m.raw = ''; } };
+
+async function decryptRow(room, r) {
+  const m = { id: r.id, rev: r.rev, from: r.sender, kind: r.kind, at: r.at, exp: r.exp || 0, seen: r.seen || 0, opened: !!r.opened, raw: '' };
+  if (r.kind === 'msg') {
+    try {
+      m.text = JSON.parse(await C.openText(room.key, r.body, aad(room.id, r.sender, 'msg'))).m;
+      if (typeof m.text !== 'string') throw new Error('bad');
+    } catch { m.bad = true; m.text = ''; }
+  } else if (r.kind === 'once') {
+    // el texto se descifra solo al abrirlo / decrypted only when opened
+    if (r.sender !== (S.me && S.me.code)) { if (r.body && !m.opened) m.raw = r.body; else m.opened = true; }
+  } else if (r.kind === 'sys') {
+    try { m.sys = JSON.parse(r.body) || {}; } catch { m.sys = {}; }
+  }
+  return m;
+}
+
+async function ingest(rows) {
+  const touched = new Set();
+  let unknown = false, incoming = false;
+  for (const r of rows) {
+    const room = S.rooms.get(r.room);
+    if (!room || !room.key) { unknown = true; continue; }
+    const prev = room.msgs.get(r.id);
+    const m = await decryptRow(room, r);
+    if (prev) keepLocal(prev, m);
+    room.msgs.set(m.id, m);
+    if (!room.last || m.id >= room.last.id) room.last = m;
+    if (!prev && S.me && m.from !== S.me.code && (m.kind === 'msg' || m.kind === 'once')) {
+      if (S.current === room.id && document.visibilityState === 'visible') markRead(room);
+      else room.unread = (room.unread || 0) + 1;
+      incoming = true;
+    }
+    touched.add(room.id);
+  }
+  if (unknown) scheduleRooms();
+  if (touched.size) { renderList(); if (touched.has(S.current)) renderMessages(); }
+  if (incoming) SND.play('recv');
+}
+
+function onEvents(list) {
+  const rows = [];
+  for (const ev of list) {
+    if (ev.type === 'msg' && ev.m) rows.push(ev.m);
+    else if (ev.type === 'open') {
+      const room = S.rooms.get(ev.room), m = room && room.msgs.get(ev.id);
+      if (!m) continue;
+      m.seen = ev.seen;
+      if (S.me && ev.by === S.me.code) { m.opened = true; m.raw = ''; }
+      if (S.current === room.id) renderMessages();
+    } else if (ev.type === 'room') scheduleRooms();
+  }
+  if (rows.length) ingest(rows);
+}
+
+const readTimers = new Map();
+function markRead(room) {
+  room.unread = 0;
+  let max = 0;
+  for (const id of room.msgs.keys()) if (id > max) max = id;
+  if (!max || (room.readSent || 0) >= max) return;
+  clearTimeout(readTimers.get(room.id));
+  readTimers.set(room.id, setTimeout(() => {
+    room.readSent = max;
+    if (S.token) api('POST', '/api/read', { room: room.id, id: max }).catch(() => {});
+  }, 700));
+}
+
+let syncing = null;
+function syncNow() {
+  if (!S.token) return Promise.resolve();
+  if (syncing) return syncing;
+  syncing = (async () => {
+    const token = S.token;
+    try {
+      for (let i = 0; i < 10; i++) {
+        const r = await api('GET', '/api/sync?since=' + S.rev);
+        if (S.token !== token) return;
+        if (r.msgs.length) await ingest(r.msgs);
+        S.rev = Math.max(S.rev, r.rev);
+        if (!r.more) break;
+      }
+      RT.online(true);
+    } catch (e) { if (e.code === 'network') RT.online(false); }
+    finally { syncing = null; }
+  })();
+  return syncing;
+}
+
+// Tiempo real: WebSocket con el Worker; si no hay, consulta cada 4 s.  WebSocket, or polling fallback.
+const RT = {
+  ws: null, tries: 0, t: 0, pollT: 0, slowT: 0, on: false,
+  start() {
+    this.stop();
+    this.on = true;
+    this.slowT = setInterval(() => { syncNow(); scheduleRooms(); }, 45000);
+    if (S.realtime) this.connect(); else this.poll();
+  },
+  stop() {
+    this.on = false;
+    clearTimeout(this.t); clearInterval(this.pollT); clearInterval(this.slowT);
+    this.pollT = 0; this.tries = 0;
+    if (this.ws) { const w = this.ws; this.ws = null; w.onclose = null; try { w.close(1000); } catch { /* */ } }
+    this.online(true);
+  },
+  connect() {
+    if (!this.on || !S.token) return;
+    let ws;
+    try { ws = new WebSocket(SERVER.replace(/^http/, 'ws') + '/api/ws?t=' + encodeURIComponent(S.token)); }
+    catch { this.fail(false); return; }
+    this.ws = ws;
+    let opened = false, ping = 0;
+    ws.onopen = () => {
+      opened = true; this.tries = 0; this.unpoll(); this.online(true); syncNow();
+      ping = setInterval(() => { try { ws.send('ping'); } catch { /* */ } }, 40000);
+    };
+    ws.onmessage = e => { if (e.data === 'pong') return; try { onEvents([].concat(JSON.parse(e.data))); } catch { /* */ } };
+    ws.onclose = e => {
+      clearInterval(ping);
+      if (this.ws === ws) this.ws = null;
+      if (!this.on) return;
+      if (e.code === 4001) { sessionEnded(); return; }
+      this.fail(opened);
+    };
+  },
+  fail(wasOpen) {
+    this.tries++;
+    if (!wasOpen && this.tries >= 3) this.poll();
+    else if (!this.pollT) this.online(false);
+    clearTimeout(this.t);
+    this.t = setTimeout(() => this.connect(), Math.min(30000, 1000 * 2 ** Math.min(this.tries, 5)));
+    if (wasOpen) syncNow();
+  },
+  poll() {
+    if (this.pollT) return;
+    this.online(true);
+    this.pollT = setInterval(() => { if (document.visibilityState === 'visible') syncNow(); }, 4000);
+    syncNow();
+  },
+  unpoll() { clearInterval(this.pollT); this.pollT = 0; },
+  online(v) { const n = $('#net'); if (n) n.classList.toggle('on', !v && !!S.token); },
+};
+
+/* ─── pantallas / screens ─── */
+function show(id) {
+  $$('.screen').forEach(s => s.classList.toggle('on', s.id === 'v-' + id));
+  if (id === 'welcome') Hero.start(); else Hero.stop();
+}
+const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+function rollRotor(cells, digits, dur = 650) {
+  cells.forEach((c, i) => {
+    clearTimeout(c._t);
+    if (reduced()) { c.textContent = digits[i]; return; }
+    c.classList.add('roll'); c.classList.remove('settle');
+    const end = performance.now() + dur + i * 120;
+    const tick = () => {
+      if (performance.now() >= end) { c.textContent = digits[i]; c.classList.remove('roll'); void c.offsetWidth; c.classList.add('settle'); return; }
+      c.textContent = String(randInt(10));
+      c._t = setTimeout(tick, 50);
+    };
+    tick();
+  });
+}
+const Hero = {
+  t: 0,
+  start() { if (this.t) return; const run = () => rollRotor($$('#hero-rotor .cell'), String(10000 + randInt(90000))); run(); this.t = setInterval(run, 3800); },
+  stop() { clearInterval(this.t); this.t = 0; },
+};
+function logoEl(cls) { const e = h('span', { class: cls }); e.innerHTML = LOGO; return e; }
+
+/* ─── nombres y avatares ─── */
+const dmPeerCode = id => { const [, a, b] = id.split(':'); return S.me && a === S.me.code ? b : a; };
+function roomName(r) {
+  if (r.kind === 'group') return r.name || t('group');
+  return (r.peer && r.peer.name) || '#' + ((r.peer && r.peer.code) || dmPeerCode(r.id));
+}
+function nameOf(room, code) {
+  if (S.me && code === S.me.code) return t('you');
+  if (room.kind === 'dm') return (room.peer && room.peer.name) || '#' + code;
+  const m = (room.members || []).find(x => x.code === code);
+  return (m && m.name) || '#' + code;
+}
+const memberCount = r => ((r.members || []).length === 1 ? t('member1') : t('members', { n: (r.members || []).length }));
+function hue(s) { let x = 7; for (const ch of String(s || '')) x = (x * 31 + ch.charCodeAt(0)) >>> 0; return x % 360; }
+function initials(name, code) {
+  const w = String(name || '').trim().split(/\s+/).filter(Boolean);
+  if (w.length) return ([...w[0]][0] + (w[1] ? [...w[1]][0] : '')).toUpperCase();
+  return String(code || '').slice(-2);
+}
+function avatar(r, size) {
+  const grp = r.kind === 'group';
+  const label = grp ? initials(r.name, '#') : initials(r.peer && r.peer.name, r.peer && r.peer.code);
+  return h('span', { class: 'av' + (grp ? ' grp' : '') + (size ? ' ' + size : ''), style: '--h:' + hue(grp ? r.id : r.peer && r.peer.code), 'aria-hidden': 'true' }, label);
+}
+
+/* ─── lista de chats / chat list ─── */
+function renderList() {
+  const list = $('#chat-list');
+  if (!S.me) { list.replaceChildren(); return; }
+  if (S.loading && !S.rooms.size) { list.replaceChildren(h('div', { class: 'center-row' }, h('span', { class: 'spin' }))); return; }
+  const rooms = [...S.rooms.values()]
+    // un chat privado vacío que otra persona abrió aparece hasta que llegue su primer mensaje
+    .filter(r => !(r.kind === 'dm' && !r.last && r.by !== S.me.code && r.id !== S.current))
+    .sort((a, b) => ((b.last && b.last.at) || b.at) - ((a.last && a.last.at) || a.at));
+  if (!rooms.length) { list.replaceChildren(emptyState()); return; }
+  list.replaceChildren(...rooms.map(roomItem));
+}
+function roomItem(r) {
+  return h('button', { class: 'item' + (r.id === S.current ? ' sel' : '') + (r.unread ? ' unread' : ''), onclick: () => openChat(r.id) },
+    avatar(r),
+    h('span', { class: 'mid' },
+      h('span', { class: 'nm' }, h('span', { class: 'ell', text: roomName(r) }), r.ttl ? icon('clock', 'tiny') : null, r.stealth ? icon('eyeOff', 'tiny') : null),
+      h('span', { class: 'pv', text: preview(r) })),
+    h('span', { class: 'rt' }, h('span', { text: r.last ? listTime(r.last.at) : '' }), r.unread ? h('span', { class: 'badge', text: r.unread > 99 ? '99+' : String(r.unread) }) : null));
+}
+function preview(r) {
+  if (r.bad) return '⚠️ ' + t('cant_decrypt');
+  const m = r.last;
+  if (!m) return r.kind === 'group' ? memberCount(r) : t('new_chat_pv');
+  if (m.kind === 'sys') return sysText(r, m);
+  const who = m.from === S.me.code ? t('you') + ': ' : (r.kind === 'group' ? nameOf(r, m.from) + ': ' : '');
+  if (m.kind === 'del') return who + t('deleted_msg');
+  if (m.kind === 'once') return who + '👁 ' + t('once_sent');
+  if (!prefs.previews) return who + '🔒 ' + t('encrypted_msg');
+  if (m.bad) return who + '⚠️ ' + t('cant_decrypt');
+  return who + m.text.replace(/\s+/g, ' ');
+}
+function emptyState() {
+  const txt = t('my_code_text', { code: S.me.code });
+  return h('div', { class: 'empty' }, logoEl('empty-logo'), h('h3', { text: t('empty_t') }), h('p', { text: t('empty_d') }),
+    rotorDisplay(S.me.code, 'md'),
+    h('div', { class: 'row-btns' },
+      h('button', { class: 'btn ghost sm', onclick: () => share(txt) }, icon('share', 'sm'), h('span', { text: t('share_code') })),
+      h('button', { class: 'btn primary sm', onclick: () => sheetNew() }, icon('plus', 'sm'), h('span', { text: t('new_chat') }))));
+}
+
+/* ─── chat abierto / open chat ─── */
+function openChat(id) {
+  const room = S.rooms.get(id);
+  if (!room) return;
+  const ta = $('#composer-input');
+  const prev = S.rooms.get(S.current);
+  if (prev && prev !== room) prev.draft = ta.value;
+  if (S.current !== id) { setOnce(false); ta.value = room.draft || ''; autoGrow(ta); }
+  S.current = id;
+  $('#v-main').classList.add('in-chat');
+  $('#chat').hidden = false;
+  $('#chat-empty').hidden = true;
+  renderChatHeader();
+  renderMessages({ toBottom: true });
+  markRead(room);
+  renderList();
+  Nav.sync();
+  if (!room.loaded) loadHistory(room, true);
+  if (!isTouch()) setTimeout(() => ta.focus(), 30);
+}
+function closeChat(silent) {
+  const prev = S.rooms.get(S.current);
+  if (prev) prev.draft = $('#composer-input').value;
+  S.current = null;
+  $('#v-main').classList.remove('in-chat');
+  $('#chat').hidden = true;
+  $('#chat-empty').hidden = false;
+  $('#msgs').replaceChildren();
+  if (!silent) { renderList(); Nav.sync(); }
+}
+function renderChatHeader() {
+  const r = S.rooms.get(S.current);
+  if (!r) return;
+  $('#chat-av').replaceChildren(avatar(r, 'sm'));
+  $('#chat-title').textContent = roomName(r);
+  $('#chat-sub').replaceChildren(icon('lock', 'tiny'), h('span', { text: (r.kind === 'group' ? memberCount(r) : '#' + r.peer.code) + ' · ' + t('e2e_short') }));
+  const flags = $('#chat-flags');
+  flags.replaceChildren();
+  if (r.ttl) flags.append(h('span', { class: 'flag', title: t('disappearing') }, icon('clock', 'tiny'), h('span', { text: t('ttl_' + r.ttl) })));
+  if (r.stealth) flags.append(h('span', { class: 'flag', title: t('stealth') }, icon('eyeOff', 'tiny')));
+  let note = '';
+  if (r.bad || !r.key) note = t('cant_decrypt');
+  else if (r.kind === 'dm' && r.peer.gone) note = t('peer_gone');
+  else if (r.kind === 'dm' && S.blocked.has(r.peer.code)) note = t('you_blocked');
+  $('#composer').hidden = !!note;
+  const n = $('#composer-note');
+  n.hidden = !note;
+  n.textContent = note;
+}
+
+let renderOpts = null;
+function renderMessages(o = {}) {
+  if (renderOpts) { Object.assign(renderOpts, o); return; }
+  renderOpts = Object.assign({}, o);
+  requestAnimationFrame(() => { const opts = renderOpts; renderOpts = null; drawMessages(opts); });
+}
+function drawMessages(o) {
+  const box = $('#msgs'), room = S.rooms.get(S.current);
+  if (!room || !S.me) { box.replaceChildren(); return; }
+  const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 90;
+  const prevH = box.scrollHeight, prevTop = box.scrollTop;
+  const now = Date.now();
+  const list = [...room.msgs.values()].filter(m => !m.exp || m.exp > now).sort((a, b) => a.id - b.id);
+  const f = document.createDocumentFragment();
+  f.append(h('div', { class: 'e2e' }, icon('lock', 'tiny'), h('span', { text: t('e2e_banner') })));
+  if (room.stealth) f.append(h('div', { class: 'stealth-tip' }, icon('eyeOff', 'tiny'), h('span', { text: t('stealth_tip') })));
+  if (room.loaded && room.more) f.append(h('button', { class: 'older', onclick: () => loadHistory(room, false) }, t('load_older')));
+  let day = '', last = null;
+  for (const m of list) {
+    const k = dayKey(m.at);
+    if (k !== day) { f.append(h('div', { class: 'day', text: dayLabel(m.at) })); day = k; last = null; }
+    if (m.kind === 'sys') { f.append(h('div', { class: 'sys' + (m.sys.e === 'shot' ? ' warn' : ''), text: sysText(room, m) })); last = null; continue; }
+    f.append(bubble(room, m, last === m.from));
+    last = m.from;
+  }
+  for (const p of room.pending) f.append(pendingBubble(room, p));
+  box.replaceChildren(f);
+  box.classList.toggle('stealth', !!room.stealth);
+  if (o.prepended) box.scrollTop = box.scrollHeight - prevH + prevTop;
+  else if (o.toBottom || atBottom) box.scrollTop = box.scrollHeight;
+}
+
+function bubble(room, m, cont) {
+  const mine = m.from === S.me.code;
+  const b = h('div', { class: 'bubble' + (m.kind === 'del' ? ' del' : '') });
+  if (room.kind === 'group' && !mine && !cont) b.append(h('div', { class: 'who', style: '--h:' + hue(m.from) }, nameOf(room, m.from) + ' ', h('small', { text: '#' + m.from })));
+  if (m.kind === 'del') b.append(h('div', { class: 'txt', text: '🚫 ' + t('deleted_msg') }));
+  else if (m.kind === 'once') {
+    if (mine) {
+      const st = m.seen ? ' · ' + (room.kind === 'dm' ? t('once_opened') : t('once_opened_n', { n: m.seen })) : '';
+      b.append(h('div', { class: 'once-line' }, icon('once'), h('span', { text: t('once_sent') + st })));
+    } else if (m.raw && !m.opened) b.append(h('button', { class: 'once-line tap', onclick: () => openOnce(room, m) }, icon('once'), h('span', { text: t('once_tap') })));
+    else b.append(h('div', { class: 'once-line dim' }, icon('once'), h('span', { text: t('once_opened') })));
+  } else if (m.bad) b.append(h('div', { class: 'txt dim', text: '⚠️ ' + t('cant_decrypt') }));
+  else b.append(h('div', { class: 'txt', text: m.text }));
+  const meta = h('div', { class: 'meta' });
+  if (m.exp) meta.append(h('span', { class: 'exp' }, icon('clock', 'tiny'), h('span', { text: leftLabel(m.exp) })));
+  meta.append(h('span', { text: fmtTime(m.at) }));
+  b.append(meta);
+  const row = h('div', { class: 'row ' + (mine ? 'mine' : 'theirs') + (cont ? ' cont' : '') }, b);
+  if (room.stealth && m.kind === 'msg') attachPeek(b);
+  if (mine && (m.kind === 'msg' || m.kind === 'once')) attachActions(row, b, m);
+  return row;
+}
+// Modo sigilo: se ve solo mientras lo mantienes presionado.  Stealth: visible only while held.
+function attachPeek(b) {
+  const off = () => b.classList.remove('peek');
+  b.addEventListener('pointerdown', () => b.classList.add('peek'));
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => b.addEventListener(ev, off));
+}
+function attachActions(row, b, m) {
+  let down = 0;
+  b.addEventListener('pointerdown', () => { down = Date.now(); });
+  b.addEventListener('click', () => { if (Date.now() - down < 350) toggleActions(row, m); });
+  b.addEventListener('contextmenu', e => { e.preventDefault(); toggleActions(row, m); });
+}
+function toggleActions(row, m) {
+  const next = row.nextElementSibling;
+  $$('#msgs .msg-actions').forEach(x => x.remove());
+  if (next && next.classList.contains('msg-actions')) return;
+  const bar = h('div', { class: 'msg-actions' }, h('button', {
+    onclick: async () => {
+      bar.remove();
+      try { const r = await api('POST', '/api/unsend', { id: m.id }); await ingest([r.m]); } catch (e) { toast(errText(e)); }
+    },
+  }, icon('trash', 'sm'), h('span', { text: t('unsend') })));
+  row.after(bar);
+}
+function pendingBubble(room, p) {
+  const failed = p.state === 'failed';
+  const b = h('div', { class: 'bubble' },
+    p.kind === 'once' ? h('div', { class: 'once-line' }, icon('once'), h('span', { text: t('once_sent') })) : h('div', { class: 'txt', text: p.text }),
+    h('div', { class: 'meta' }, failed ? h('span', { text: '⚠️ ' + t('failed') }) : h('span', { class: 'spin tiny' }), h('span', { text: fmtTime(p.at) })));
+  const f = document.createDocumentFragment();
+  f.append(h('div', { class: 'row mine pending' + (failed ? ' failed' : '') }, b));
+  if (failed) {
+    f.append(h('div', { class: 'msg-actions' },
+      h('button', { class: 'ok', onclick: () => deliver(room, p) }, icon('refresh', 'sm'), h('span', { text: t('retry') })),
+      h('button', { onclick: () => { room.pending = room.pending.filter(x => x !== p); renderMessages(); } }, icon('x', 'sm'), h('span', { text: t('discard') }))));
+  }
+  return f;
+}
+function sysText(room, m) {
+  const mine = S.me && m.from === S.me.code, n = nameOf(room, m.from), sfx = mine ? '_me' : '';
+  const e = m.sys && m.sys.e;
+  const k = { create: 'sys_create', join: 'sys_join', leave: 'sys_leave', shot: 'sys_shot' }[e];
+  if (k) return t(k + sfx, { n });
+  if (e === 'ttl') return m.sys.v ? t('sys_ttl_on' + sfx, { n, t: t('ttl_' + m.sys.v) }) : t('sys_ttl_off' + sfx, { n });
+  if (e === 'stealth') return t((m.sys.v ? 'sys_st_on' : 'sys_st_off') + sfx, { n });
+  return '';
+}
+
+/* ─── fechas / time ─── */
+const fmtTime = ts => new Date(ts).toLocaleTimeString(locale(), { hour: 'numeric', minute: '2-digit' });
+const dayKey = ts => { const d = new Date(ts); return d.getFullYear() + '-' + d.getMonth() + '-' + d.getDate(); };
+function dayLabel(ts) {
+  const d = new Date(ts), now = new Date();
+  if (dayKey(ts) === dayKey(now)) return t('today');
+  if (dayKey(ts) === dayKey(now.getTime() - 864e5)) return t('yesterday');
+  const opt = { weekday: 'short', day: 'numeric', month: 'short' };
+  if (d.getFullYear() !== now.getFullYear()) opt.year = 'numeric';
+  return d.toLocaleDateString(locale(), opt);
+}
+function listTime(ts) {
+  const now = Date.now();
+  if (dayKey(ts) === dayKey(now)) return fmtTime(ts);
+  if (now - ts < 6 * 864e5) return new Date(ts).toLocaleDateString(locale(), { weekday: 'short' });
+  return new Date(ts).toLocaleDateString(locale(), { day: 'numeric', month: 'short' });
+}
+function leftLabel(exp) {
+  const s = Math.max(0, exp - Date.now()) / 1000;
+  if (s < 3600) return Math.max(1, Math.ceil(s / 60)) + 'm';
+  if (s < 86400) return Math.ceil(s / 3600) + 'h';
+  return Math.ceil(s / 86400) + 'd';
+}
+
+/* ─── escribir / composer ─── */
+function setOnce(v) {
+  S.once = !!v;
+  $('#once-btn').classList.toggle('on', S.once);
+  $('#composer').classList.toggle('once', S.once);
+  $('#composer-input').placeholder = t(S.once ? 'type_once' : 'type_msg');
+}
+function autoGrow(ta) { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight + 2, 150) + 'px'; }
+async function sendMessage() {
+  const room = S.rooms.get(S.current);
+  if (!room || !room.key) return;
+  const ta = $('#composer-input');
+  const text = ta.value.replace(/\s+$/, '');
+  if (!text.trim()) return;
+  if (text.length > 4000) { toast(t('err_too_long')); return; }
+  const p = { text, kind: S.once ? 'once' : 'msg', at: Date.now(), state: 'sending' };
+  ta.value = ''; room.draft = ''; autoGrow(ta); setOnce(false);
+  room.pending.push(p);
+  renderMessages({ toBottom: true });
+  await deliver(room, p);
+}
+async function deliver(room, p) {
+  p.state = 'sending';
+  renderMessages();
+  try {
+    const body = await C.seal(room.key, JSON.stringify({ m: p.text }), aad(room.id, S.me.code, p.kind));
+    const r = await api('POST', '/api/send', { room: room.id, kind: p.kind, body });
+    room.pending = room.pending.filter(x => x !== p);
+    p.text = '';
+    await ingest([r.m]);
+    SND.play('send');
+  } catch (e) {
+    if (!S.token) return;
+    p.state = 'failed';
+    renderMessages();
+    toast(errText(e));
+    SND.play('err');
+  }
+}
+
+async function loadHistory(room, initial) {
+  if (room.loading) return;
+  room.loading = true;
+  try {
+    let before = 0;
+    if (!initial) for (const id of room.msgs.keys()) if (!before || id < before) before = id;
+    const r = await api('GET', '/api/messages?room=' + encodeURIComponent(room.id) + (before ? '&before=' + before : ''));
+    for (const row of r.msgs) {
+      const m = await decryptRow(room, row);
+      const prev = room.msgs.get(m.id);
+      if (prev) keepLocal(prev, m);
+      room.msgs.set(m.id, m);
+      if (!room.last || m.id >= room.last.id) room.last = m;
+    }
+    room.more = r.more;
+    room.loaded = true;
+    if (S.current === room.id) { renderMessages(initial ? { toBottom: true } : { prepended: true }); markRead(room); }
+  } catch (e) { if (S.token) toast(errText(e)); }
+  finally { room.loading = false; }
+}
+
+// Mensajes temporales: desaparecen de la pantalla al vencer (el servidor también los borra).
+function tickExpiry() {
+  if (!S.token) return;
+  const now = Date.now();
+  let cur = false, list = false;
+  for (const room of S.rooms.values()) {
+    let removed = false;
+    for (const [id, m] of room.msgs) if (m.exp && m.exp <= now) { room.msgs.delete(id); removed = true; }
+    if (room.last && room.last.exp && room.last.exp <= now) {
+      room.last = null;
+      for (const m of room.msgs.values()) if (!room.last || m.id > room.last.id) room.last = m;
+      list = true;
+    }
+    if (room.id === S.current && (removed || [...room.msgs.values()].some(m => m.exp))) cur = true;
+  }
+  if (list) renderList();
+  if (cur) renderMessages();
+}
+
+/* ─── ver una vez / view once ─── */
+let viewerDone = null;
+async function openOnce(room, m) {
+  if (!m.raw) return;
+  let text;
+  try { text = JSON.parse(await C.openText(room.key, m.raw, aad(room.id, m.from, 'once'))).m; }
+  catch { toast(t('cant_decrypt')); return; }
+  $('#viewer-text').textContent = text;
+  $('#viewer').classList.add('on');
+  SND.play('open');
+  viewerDone = () => { m.opened = true; m.raw = ''; renderMessages(); };
+  Nav.sync();
+  api('POST', '/api/open', { id: m.id }).catch(() => {});
+}
+function closeViewer() {
+  const v = $('#viewer');
+  if (!v.classList.contains('on')) return;
+  v.classList.remove('on');
+  $('#viewer-text').textContent = '';
+  const f = viewerDone;
+  viewerDone = null;
+  if (f) f();
+  Nav.sync();
+}
+
+/* ─── componentes / components ─── */
+function rotorDisplay(code, size) {
+  const el = h('div', { class: 'rotor' + (size ? ' ' + size : '') + (code.length === 8 ? ' r8' : '') });
+  [...code].forEach((d, i) => { if (code.length === 8 && i === 4) el.append(h('span', { class: 'gap' })); el.append(h('span', { class: 'cell', text: d })); });
+  return el;
+}
+// Entrada de código con "rodillos" (como una caja fuerte).  Code input shown as rotor wheels.
+function rotorInput(len) {
+  const input = h('input', { inputmode: 'numeric', pattern: '[0-9]*', autocomplete: 'off', maxlength: String(len), enterkeyhint: 'next', 'aria-label': len === 5 ? t('your_code') : t('group_code') });
+  const wrap = h('div', { class: 'rotor entry' + (len === 8 ? ' r8' : '') });
+  const cells = [];
+  for (let i = 0; i < len; i++) {
+    if (len === 8 && i === 4) wrap.append(h('span', { class: 'gap' }));
+    const c = h('span', { class: 'cell' });
+    cells.push(c);
+    wrap.append(c);
+  }
+  wrap.append(input);
+  const ctl = { el: wrap, input, value: '', onchange: null, onenter: null, focus: () => input.focus() };
+  const paint = () => {
+    const v = input.value, focused = document.activeElement === input;
+    cells.forEach((c, i) => { c.textContent = v[i] || ''; c.classList.toggle('filled', i < v.length); c.classList.toggle('cur', focused && i === Math.min(v.length, len - 1)); });
+    wrap.classList.toggle('focus', focused);
+  };
+  input.addEventListener('input', () => {
+    const v = input.value.replace(/\D/g, '').slice(0, len);
+    if (v !== input.value) input.value = v;
+    if (v.length > ctl.value.length) SND.play('tick');
+    ctl.value = v;
+    paint();
+    if (ctl.onchange) ctl.onchange(v);
+  });
+  input.addEventListener('focus', paint);
+  input.addEventListener('blur', paint);
+  input.addEventListener('keydown', e => { if (e.key === 'Enter' && ctl.onenter) ctl.onenter(); });
+  return ctl;
+}
+function passField(value, o = {}) {
+  const input = h('input', { class: 'input mono', type: o.masked ? 'password' : 'text', autocomplete: o.ac || 'off', autocapitalize: 'off', autocorrect: 'off', spellcheck: 'false', maxlength: '64', 'aria-label': t('password'), placeholder: o.masked ? t('password') : '' });
+  input.value = value || '';
+  const eye = h('button', { class: 'eye', type: 'button', 'aria-label': t('show') }, icon(o.masked ? 'eye' : 'eyeOff', 'sm'));
+  eye.onclick = () => { const hidden = input.type === 'password'; input.type = hidden ? 'text' : 'password'; eye.replaceChildren(icon(hidden ? 'eyeOff' : 'eye', 'sm')); };
+  const row = h('div', { class: 'pass-row' }, h('div', { class: 'pass-box' }, input, eye));
+  if (o.gen) row.append(h('button', { class: 'btn ghost sm', type: 'button', onclick: () => { input.value = genPass(); input.dispatchEvent(new Event('input')); SND.play('tick'); } }, icon('refresh', 'sm'), h('span', { text: t('generate') })));
+  return { el: h('div', null, row, o.meter ? meter(input) : null), input, get value() { return input.value; } };
+}
+function strength(p) {
+  if (!p) return 0;
+  const cls = [/[a-z]/, /[A-Z]/, /\d/, /[^A-Za-z0-9]/].filter(r => r.test(p)).length;
+  if ((p.length >= 12 && cls >= 3) || p.length >= 16) return 3;
+  if (p.length >= 8 && cls >= 2) return 2;
+  return 1;
+}
+function meter(input) {
+  const label = h('span');
+  const el = h('div', { class: 'meter' }, h('i'), h('i'), h('i'), label);
+  const paint = () => { const s = strength(input.value); el.dataset.s = String(s); label.textContent = s ? t('str_' + s) : ''; };
+  input.addEventListener('input', paint);
+  paint();
+  return el;
+}
+function chips(opts, val, onChange) {
+  const el = h('div', { class: 'chips', role: 'radiogroup' });
+  const paint = () => $$('.chip', el).forEach(c => { const on = c.dataset.v === String(val); c.classList.toggle('on', on); c.setAttribute('aria-checked', String(on)); });
+  for (const [v, label] of opts) {
+    el.append(h('button', {
+      class: 'chip', type: 'button', role: 'radio', dataset: { v: String(v) },
+      onclick: async () => { if (v === val) return; const old = val; val = v; paint(); if ((await onChange(v)) === false) { val = old; paint(); } },
+    }, label));
+  }
+  paint();
+  return el;
+}
+function switchRow(title, desc, val, onChange) {
+  const inp = h('input', { type: 'checkbox', role: 'switch', 'aria-label': title });
+  inp.checked = !!val;
+  inp.addEventListener('change', async () => { const v = inp.checked; if ((await onChange(v)) === false) inp.checked = !v; });
+  return h('label', { class: 'set-row' }, h('span', { class: 'grow' }, h('b', { text: title }), desc ? h('small', { text: desc }) : null), h('span', { class: 'switch' }, inp, h('span')));
+}
+const field = (label, el) => h('div', { class: 'field' }, h('label', { text: label }), el);
+function busy(btn, on, label) {
+  if (on) {
+    if (!btn._kids) btn._kids = [...btn.childNodes];
+    btn.disabled = true;
+    btn.replaceChildren(h('span', { class: 'spin' }), label ? h('span', { text: label }) : '');
+  } else {
+    btn.disabled = false;
+    if (btn._kids) { btn.replaceChildren(...btn._kids); btn._kids = null; }
+  }
+}
+function shake(el) { el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake'); }
+let toastT = 0;
+function toast(msg) {
+  const el = $('#toast');
+  el.textContent = msg;
+  el.classList.add('on');
+  clearTimeout(toastT);
+  toastT = setTimeout(() => el.classList.remove('on'), 2800);
+}
+async function copy(text) {
+  try { await navigator.clipboard.writeText(text); toast(t('copied')); return; } catch { /* fallback below */ }
+  const ta = h('textarea', { style: 'position:fixed;left:-9999px;top:0;opacity:0' });
+  ta.value = text;
+  document.body.append(ta);
+  ta.select();
+  try { document.execCommand('copy'); toast(t('copied')); } catch { /* */ }
+  ta.remove();
+}
+async function share(text) {
+  if (navigator.share) { try { await navigator.share({ text }); return; } catch (e) { if (e && e.name === 'AbortError') return; } }
+  copy(text);
+}
+function holdButton(label, fn) {
+  const b = h('button', { class: 'btn danger hold', type: 'button' }, h('i'), icon('zap', 'sm'), h('span', { text: label }));
+  let timer = 0;
+  const stop = () => { b.classList.remove('go'); clearTimeout(timer); };
+  b.addEventListener('pointerdown', e => { e.preventDefault(); b.classList.add('go'); clearTimeout(timer); timer = setTimeout(fn, 1200); });
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => b.addEventListener(ev, stop));
+  b.addEventListener('contextmenu', e => e.preventDefault());
+  return b;
+}
+
+/* ─── hojas / sheets ─── */
+const Sheet = {
+  onClose: null,
+  open(content, onClose) {
+    const prev = this.onClose;
+    this.onClose = null;
+    if (prev) try { prev(); } catch { /* */ }
+    $('#sheet-body').replaceChildren(content);
+    $('#sheet').classList.add('on');
+    $('#sheet .sheet').scrollTop = 0;
+    this.onClose = onClose || null;
+    Nav.sync();
+  },
+  close() {
+    const w = $('#sheet');
+    if (!w.classList.contains('on')) return;
+    w.classList.remove('on');
+    $('#sheet-body').replaceChildren();
+    const f = this.onClose;
+    this.onClose = null;
+    if (f) try { f(); } catch { /* */ }
+    Nav.sync();
+  },
+  isOpen() { return $('#sheet').classList.contains('on'); },
+};
+const sheetHead = title => h('div', { class: 'sh-head' }, h('h2', { text: title }), h('button', { class: 'icon-btn', type: 'button', 'aria-label': t('close'), onclick: () => Sheet.close() }, icon('x')));
+
+// Botón "atrás" de Android: cierra hoja → visor → chat.  Android back closes sheet → viewer → chat.
+const Nav = {
+  has: false, skip: false, t: 0, off: false,
+  sync() { clearTimeout(this.t); if (!this.off) this.t = setTimeout(() => this.apply(), 0); },
+  apply() {
+    if (this.off) return;
+    const open = Sheet.isOpen() || $('#viewer').classList.contains('on') || (isMobile() && !!S.current);
+    if (open && !this.has) { history.pushState({ cifra: 1 }, ''); this.has = true; }
+    else if (!open && this.has) { this.has = false; this.skip = true; history.back(); }
+  },
+};
+addEventListener('popstate', () => {
+  if (Nav.skip) { Nav.skip = false; return; }
+  Nav.has = false;
+  if ($('#viewer').classList.contains('on')) closeViewer();
+  else if (Sheet.isOpen()) Sheet.close();
+  else if (S.current && isMobile()) closeChat();
+  Nav.apply();
+});
+
+function sheetNew() {
+  const item = (ic, title, desc, fn) => h('button', { class: 'menu-item', type: 'button', onclick: fn }, h('span', { class: 'mi' }, icon(ic)), h('span', null, h('b', { text: title }), h('small', { text: desc })));
+  Sheet.open(h('div', null, sheetHead(t('new_chat')),
+    item('userPlus', t('add_contact'), t('add_contact_d'), sheetAdd),
+    item('users', t('create_group'), t('create_group_d'), sheetCreateGroup),
+    item('door', t('join_group'), t('join_group_d'), sheetJoin)));
+}
+
+function sheetAdd() {
+  const rot = rotorInput(5);
+  const out = h('div', { class: 'lookup' });
+  const go = h('button', { class: 'btn primary', type: 'button', disabled: true }, t('start_chat'));
+  let found = null, seq = 0;
+  rot.onchange = async v => {
+    found = null; go.disabled = true; out.replaceChildren();
+    if (v.length !== 5) return;
+    if (v === S.me.code) { out.append(h('div', { class: 'err', text: t('self_code') })); return; }
+    const my = ++seq;
+    out.append(h('div', { class: 'center-row' }, h('span', { class: 'spin' })));
+    try {
+      const r = await api('GET', '/api/user?code=' + v);
+      if (my !== seq) return;
+      found = r.user;
+      out.replaceChildren(h('div', { class: 'user-card' }, avatar({ kind: 'dm', peer: found }),
+        h('span', { class: 'mid' }, h('b', { text: found.name || '#' + found.code }), h('br'), h('small', { class: 'mono', text: '#' + found.code }))));
+      go.disabled = false;
+    } catch (e) { if (my === seq) out.replaceChildren(h('div', { class: 'err', text: errText(e) })); }
+  };
+  rot.onenter = () => go.click();
+  go.onclick = async () => {
+    if (!found) return;
+    busy(go, true);
+    try { const r = await api('POST', '/api/dm', { code: found.code }); await loadRooms(); openChat(r.room); Sheet.close(); }
+    catch (e) { toast(errText(e)); busy(go, false); }
+  };
+  Sheet.open(h('div', { class: 'stack' }, sheetHead(t('add_contact')), h('p', { class: 'hint', text: t('add_help') }), rot.el, out, go));
+  setTimeout(() => rot.focus(), 280);
+}
+
+function sheetCreateGroup() {
+  const name = h('input', { class: 'input', maxlength: '40', placeholder: t('group_name_ph'), autocomplete: 'off', 'aria-label': t('group_name') });
+  const pass = passField(genPass(), { gen: true });
+  let ttl = 0, stealth = false;
+  const go = h('button', { class: 'btn primary', type: 'button' }, t('create'));
+  go.onclick = async () => {
+    const nm = name.value.trim().slice(0, 40);
+    if (!nm) { shake(name); name.focus(); return; }
+    const pw = pass.value;
+    if (pw.length < 4) { toast(t('err_pass4')); shake(pass.input); return; }
+    busy(go, true, t('deriving'));
+    try {
+      let code, g;
+      for (let i = 0; ; i++) {
+        code = String(10000000 + randInt(90000000));
+        g = await C.group(code, pw);
+        const meta = await C.seal(g.key, JSON.stringify({ name: nm }), 'cifra/meta|' + g.gid);
+        const secret = await C.seal(S.acct, JSON.stringify({ c: code, p: pw, k: b64(g.master) }), 'cifra/g|' + g.gid);
+        try { await api('POST', '/api/group', { id: g.gid, meta, secret, ttl, stealth }); break; }
+        catch (e) { if (e.code !== 'exists' || i >= 3) throw e; }
+      }
+      g.master.fill(0);
+      await loadRooms();
+      sheetGroupReady(g.gid, nm, code, pw);
+    } catch (e) { toast(errText(e)); busy(go, false); }
+  };
+  Sheet.open(h('div', { class: 'stack' }, sheetHead(t('create_group')),
+    field(t('group_name'), name),
+    field(t('group_pass'), pass.el),
+    h('p', { class: 'hint', text: t('pass_hint') }),
+    field(t('disappearing'), chips(TTLS.map(v => [v, t('ttl_' + v)]), 0, v => { ttl = v; })),
+    h('div', { class: 'card' }, switchRow(t('stealth'), t('stealth_d'), false, v => { stealth = v; })),
+    go));
+  setTimeout(() => name.focus(), 280);
+}
+
+function sheetGroupReady(gid, name, code, pass) {
+  const inv = t('invite', { name, code, pass });
+  const rot = rotorDisplay(code);
+  Sheet.open(h('div', { class: 'stack center' }, sheetHead(t('group_ready')),
+    h('p', { class: 'hint', text: t('group_ready_d') }),
+    h('div', { class: 'lbl', text: t('group_code') }), rot,
+    h('div', { class: 'lbl', text: t('group_pass') }), h('div', { class: 'secret-row' }, h('b', { text: pass })),
+    h('div', { class: 'row-btns' },
+      h('button', { class: 'btn ghost', type: 'button', onclick: () => copy(inv) }, icon('copy', 'sm'), h('span', { text: t('copy_invite') })),
+      navigator.share ? h('button', { class: 'btn ghost', type: 'button', onclick: () => share(inv) }, icon('share', 'sm'), h('span', { text: t('share') })) : null),
+    h('button', { class: 'btn primary', type: 'button', onclick: () => { openChat(gid); Sheet.close(); } }, t('open_chat'))));
+  rollRotor($$('.cell', rot), code, 700);
+  SND.play('unlock');
+}
+
+function sheetJoin() {
+  const rot = rotorInput(8);
+  const pass = h('input', { class: 'input mono', type: 'text', autocomplete: 'off', autocapitalize: 'off', autocorrect: 'off', spellcheck: 'false', maxlength: '64', 'aria-label': t('group_pass') });
+  const go = h('button', { class: 'btn primary', type: 'button' }, t('join'));
+  rot.onchange = v => { if (v.length === 8) pass.focus(); };
+  pass.addEventListener('keydown', e => { if (e.key === 'Enter') go.click(); });
+  go.onclick = async () => {
+    if (rot.value.length !== 8) { toast(t('err_code8')); shake(rot.el); return; }
+    if (pass.value.length < 4) { toast(t('err_pass4')); shake(pass); return; }
+    busy(go, true, t('deriving'));
+    try {
+      const g = await C.group(rot.value, pass.value);
+      if (!S.rooms.has(g.gid)) {
+        const secret = await C.seal(S.acct, JSON.stringify({ c: rot.value, p: pass.value, k: b64(g.master) }), 'cifra/g|' + g.gid);
+        await api('POST', '/api/join', { id: g.gid, secret });
+        await loadRooms();
+      }
+      g.master.fill(0);
+      openChat(g.gid);
+      Sheet.close();
+    } catch (e) { toast(errText(e)); SND.play('err'); busy(go, false); }
+  };
+  Sheet.open(h('div', { class: 'stack' }, sheetHead(t('join_group')), h('p', { class: 'hint', text: t('join_help') }),
+    field(t('group_code'), rot.el), field(t('group_pass'), pass), go));
+  setTimeout(() => rot.focus(), 280);
+}
+
+function sheetInfo(r) {
+  const kids = [sheetHead(t('info'))];
+  kids.push(h('div', { class: 'info-top' }, avatar(r, 'lg'), h('b', { text: roomName(r) }), h('small', { class: (r.kind === 'dm' ? 'mono ' : '') + 'muted', text: r.kind === 'dm' ? '#' + r.peer.code : memberCount(r) })));
+  if (r.kind === 'dm' && r.safety) {
+    kids.push(h('div', { class: 'sh-sec', text: t('safety') }), h('div', { class: 'safety' }, ...r.safety.split(' ').map(g => h('span', { text: g }))),
+      h('p', { class: 'hint', style: 'margin-top:8px', text: t('safety_d') }));
+  }
+  if (r.kind === 'group' && r.sec) {
+    const dots = '•'.repeat(Math.max(4, r.sec.p.length));
+    const pw = h('b', { text: dots });
+    let shown = false;
+    const inv = () => t('invite', { name: r.name || '', code: r.sec.c, pass: r.sec.p });
+    kids.push(h('div', { class: 'sh-sec', text: t('group_code') }), rotorDisplay(r.sec.c),
+      h('div', { class: 'sh-sec', text: t('group_pass') }),
+      h('div', { class: 'secret-row' }, pw, h('button', { class: 'icon-btn', type: 'button', 'aria-label': t('show'), onclick: () => { shown = !shown; pw.textContent = shown ? r.sec.p : dots; } }, icon('eye'))),
+      h('div', { class: 'row-btns', style: 'margin-top:10px' },
+        h('button', { class: 'btn ghost sm', type: 'button', onclick: () => copy(inv()) }, icon('copy', 'sm'), h('span', { text: t('copy_invite') })),
+        navigator.share ? h('button', { class: 'btn ghost sm', type: 'button', onclick: () => share(inv()) }, icon('share', 'sm'), h('span', { text: t('share') })) : null));
+  }
+  const setRoom = async patch => {
+    try {
+      await api('POST', '/api/settings', Object.assign({ room: r.id }, patch));
+      Object.assign(r, patch);
+      renderChatHeader(); renderMessages(); renderList();
+      return true;
+    } catch (e) { toast(errText(e)); return false; }
+  };
+  kids.push(h('div', { class: 'sh-sec', text: t('disappearing') }), h('p', { class: 'hint', style: 'margin-bottom:8px', text: t('disappearing_d') }),
+    chips(TTLS.map(v => [v, t('ttl_' + v)]), r.ttl, v => setRoom({ ttl: v })),
+    h('div', { class: 'card', style: 'margin-top:14px' }, switchRow(t('stealth'), t('stealth_d'), r.stealth, v => setRoom({ stealth: v }))));
+  kids.push(h('div', { class: 'sh-sec', text: t('protections') }),
+    h('div', { class: 'card' }, ...['p_e2e', 'p_wm', 'p_copy', 'p_shield', 'p_shot'].map(k => h('div', { class: 'prot' }, icon('check', 'sm'), h('span', { text: t(k) })))));
+  if (r.kind === 'group') {
+    kids.push(h('div', { class: 'sh-sec', text: t('members_t') + ' · ' + (r.members || []).length }),
+      h('div', { class: 'card' }, ...(r.members || []).map(m => h('div', { class: 'mem' }, avatar({ kind: 'dm', peer: m }, 'sm'),
+        h('b', { class: 'grow ell', text: m.code === S.me.code ? t('you') : (m.name || '#' + m.code) }), h('small', { text: '#' + m.code })))));
+  }
+  const acts = h('div', { class: 'stack', style: 'margin-top:20px' },
+    h('button', {
+      class: 'btn ghost', type: 'button',
+      onclick: () => confirmSheet(t('clear_chat'), t('clear_q'), async () => {
+        await api('POST', '/api/clear', { room: r.id });
+        r.msgs.clear(); r.last = null; r.more = false; r.loaded = true; r.unread = 0;
+        renderList(); renderMessages();
+      }),
+    }, icon('trash', 'sm'), h('span', { text: t('clear_chat') })));
+  if (r.kind === 'dm') {
+    const blocked = S.blocked.has(r.peer.code);
+    acts.append(
+      h('button', {
+        class: 'btn ghost', type: 'button',
+        onclick: async () => {
+          try {
+            const x = await api('POST', '/api/block', { code: r.peer.code, on: !blocked });
+            S.blocked = new Set(x.blocked);
+            toast(t(blocked ? 'unblocked_t' : 'blocked_t'));
+            renderChatHeader();
+            sheetInfo(r);
+          } catch (e) { toast(errText(e)); }
+        },
+      }, icon('ban', 'sm'), h('span', { text: blocked ? t('unblock') : t('block') })),
+      h('button', { class: 'btn danger', type: 'button', onclick: () => confirmSheet(t('delete_chat'), t('delete_chat_q'), () => leaveRoom(r)) }, icon('trash', 'sm'), h('span', { text: t('delete_chat') })));
+  } else {
+    acts.append(h('button', { class: 'btn danger', type: 'button', onclick: () => confirmSheet(t('leave_group'), t('leave_q'), () => leaveRoom(r)) }, icon('logout', 'sm'), h('span', { text: t('leave_group') })));
+  }
+  kids.push(acts);
+  Sheet.open(h('div', null, ...kids));
+}
+async function leaveRoom(r) {
+  await api('POST', '/api/leave', { room: r.id });
+  S.rooms.delete(r.id);
+  if (S.current === r.id) closeChat();
+  renderList();
+}
+function confirmSheet(title, text, fn) {
+  const go = h('button', { class: 'btn danger', type: 'button' }, t('confirm'));
+  go.onclick = async () => { busy(go, true); try { await fn(); Sheet.close(); } catch (e) { toast(errText(e)); busy(go, false); } };
+  Sheet.open(h('div', { class: 'stack' }, sheetHead(title), h('p', { class: 'hint', text }),
+    h('div', { class: 'row-btns' }, h('button', { class: 'btn ghost', type: 'button', onclick: () => Sheet.close() }, t('cancel')), go)));
+}
+
+function sheetSettings() {
+  const nameIn = h('input', { class: 'input', maxlength: '32', placeholder: t('nick_ph'), autocomplete: 'off', 'aria-label': t('profile') });
+  nameIn.value = S.me.name || '';
+  const saveBtn = h('button', { class: 'btn ghost sm', type: 'button' }, t('save'));
+  saveBtn.onclick = async () => {
+    busy(saveBtn, true);
+    try {
+      const r = await api('POST', '/api/profile', { name: nameIn.value });
+      S.me.name = r.name;
+      store.set({ last: { code: S.me.code, name: r.name } });
+      toast(t('saved'));
+    } catch (e) { toast(errText(e)); }
+    finally { busy(saveBtn, false); }
+  };
+  const others = h('button', { class: 'btn ghost', type: 'button' }, icon('logout', 'sm'), h('span', { text: t('logout_others') }));
+  others.onclick = async () => {
+    busy(others, true);
+    try { await api('POST', '/api/logout-others'); toast(t('logged_out_others')); } catch (e) { toast(errText(e)); } finally { busy(others, false); }
+  };
+  Sheet.open(h('div', null, sheetHead(t('settings')),
+    h('div', { class: 'me-card' },
+      h('div', null, h('div', { class: 'lbl', style: 'margin-bottom:8px', text: t('your_code') }), rotorDisplay(S.me.code, 'md')),
+      h('button', { class: 'btn ghost sm', type: 'button', onclick: () => share(t('my_code_text', { code: S.me.code })) }, icon('share', 'sm'), h('span', { text: t('share') }))),
+    h('div', { class: 'sh-sec', text: t('profile') }),
+    h('div', { class: 'pass-row' }, nameIn, saveBtn),
+    h('div', { class: 'card', style: 'margin-top:16px' },
+      h('div', { class: 'set-row' }, h('span', { class: 'grow' }, h('b', { text: t('language') })),
+        h('div', { class: 'seg' }, ...['es', 'en'].map(l => h('button', { type: 'button', class: l === LANG ? 'on' : '', onclick: () => { setLang(l); sheetSettings(); } }, l === 'es' ? 'Español' : 'English')))),
+      switchRow(t('sounds'), '', prefs.sounds, v => { prefs.sounds = v; savePrefs(); }),
+      switchRow(t('previews'), t('previews_d'), prefs.previews, v => { prefs.previews = v; savePrefs(); renderList(); })),
+    h('div', { class: 'sh-sec', text: t('autolock') }),
+    h('p', { class: 'hint', style: 'margin-bottom:8px', text: t('autolock_d') }),
+    chips([0, 60, 300, 900].map(v => [v, t('al_' + v)]), prefs.autolock, v => { prefs.autolock = v; savePrefs(); }),
+    h('div', { class: 'sh-sec', text: t('security') }),
+    h('div', { class: 'stack' }, h('button', { class: 'btn ghost', type: 'button', onclick: sheetChangePass }, icon('key', 'sm'), h('span', { text: t('change_pass') })), others),
+    h('div', { class: 'sh-sec', text: t('about') }),
+    h('ul', { class: 'about' }, ...[1, 2, 3, 4, 5].map(i => h('li', { text: t('about_' + i) }))),
+    h('div', { class: 'sh-sec', text: t('danger') }),
+    h('div', { class: 'stack' },
+      h('button', { class: 'btn ghost', type: 'button', onclick: logoutForget }, icon('logout', 'sm'), h('span', { text: t('logout') })),
+      holdButton(t('panic'), panic),
+      h('p', { class: 'hint', style: 'text-align:center;margin-top:-4px', text: t('panic_d') }),
+      h('button', { class: 'btn danger', type: 'button', onclick: sheetDeleteAccount }, icon('trash', 'sm'), h('span', { text: t('delete_account') }))),
+    h('p', { class: 'fine', style: 'margin-top:18px', text: t('version') })));
+}
+
+function sheetChangePass() {
+  const cur = passField('', { masked: true, ac: 'current-password' });
+  const nu = passField('', { gen: true, meter: true, ac: 'new-password' });
+  const go = h('button', { class: 'btn primary', type: 'button' }, t('change_pass'));
+  go.onclick = async () => {
+    if (cur.value.length < 4 || nu.value.length < 4) { toast(t('err_pass4')); return; }
+    busy(go, true, t('deriving'));
+    try { await changePassword(cur.value, nu.value); toast(t('pass_changed')); Sheet.close(); }
+    catch (e) { toast(errText(e)); busy(go, false); }
+  };
+  Sheet.open(h('div', { class: 'stack' }, sheetHead(t('change_pass')), field(t('current_pass'), cur.el), field(t('new_pass'), nu.el), h('p', { class: 'hint', text: t('pass_hint') }), go));
+}
+// Cambiar contraseña = volver a cifrar tu llave privada y las llaves de tus grupos con la nueva.
+async function changePassword(oldPw, newPw) {
+  const s = await api('GET', '/api/salt?code=' + S.me.code);
+  const old = await C.account(oldPw, s.salt, s.iter);
+  const salt = b64(rnd(16));
+  const nu = await C.account(newPw, salt, C.ITER);
+  const pk = await C.open(S.acct, S.encPriv, 'cifra/priv');
+  const priv = await C.seal(nu.acct, pk, 'cifra/priv');
+  pk.fill(0);
+  await loadRooms();
+  const secrets = [];
+  for (const r of S.rooms.values()) {
+    if (r.kind !== 'group') continue;
+    if (!r.sec) throw new ApiError('bad_keys');
+    secrets.push({ room: r.id, secret: await C.seal(nu.acct, JSON.stringify(r.sec), 'cifra/g|' + r.id) });
+  }
+  await api('POST', '/api/password', { old: old.auth, salt, iter: C.ITER, auth: nu.auth, priv, secrets });
+  S.acct = nu.acct;
+  S.encPriv = priv;
+}
+function sheetDeleteAccount() {
+  const pw = passField('', { masked: true, ac: 'current-password' });
+  const go = h('button', { class: 'btn danger', type: 'button' }, icon('trash', 'sm'), h('span', { text: t('delete_account') }));
+  go.onclick = async () => {
+    if (pw.value.length < 4) { toast(t('err_pass4')); return; }
+    busy(go, true, t('deriving'));
+    try {
+      const s = await api('GET', '/api/salt?code=' + S.me.code);
+      const { auth } = await C.account(pw.value, s.salt, s.iter);
+      await api('POST', '/api/delete-account', { auth });
+      wipeSession();
+      store.set({ last: null });
+      show('welcome');
+    } catch (e) { toast(errText(e)); busy(go, false); }
+  };
+  Sheet.open(h('div', { class: 'stack' }, sheetHead(t('delete_account')),
+    h('div', { class: 'note danger-note' }, icon('alert', 'sm'), h('span', { text: t('delete_account_d') })),
+    field(t('confirm_pass'), pw.el), go));
+}
+function logoutForget() {
+  const tok = S.token;
+  if (tok) try { fetch(SERVER + '/api/logout', { method: 'POST', headers: { Authorization: 'Bearer ' + tok }, keepalive: true }).catch(() => {}); } catch { /* */ }
+  wipeSession();
+  store.set({ last: null });
+  show('welcome');
+}
+
+/* ─── pantallas de acceso / auth screens ─── */
+let suPass = null, liCode = null, liPass = null, lkPass = null;
+function goSignup() {
+  suPass = passField(genPass(), { gen: true, meter: true, ac: 'new-password' });
+  $('#su-pass').replaceChildren(suPass.el);
+  $('#su-name').value = '';
+  show('signup');
+}
+async function doSignup() {
+  const btn = $('#su-go');
+  if (btn.disabled) return;
+  const name = $('#su-name').value.trim().slice(0, 32), pass = suPass.value;
+  if (pass.length < 4) { toast(t('err_pass4')); shake(suPass.input); return; }
+  busy(btn, true, t('making_keys'));
+  try {
+    pendingSession = await signupFlow(name, pass);
+    store.set({ last: { code: pendingSession.me.code, name: pendingSession.me.name || '' } });
+    showCreated(pendingSession.me.code, pass);
+  } catch (e) { toast(errText(e)); SND.play('err'); }
+  finally { busy(btn, false); }
+}
+function showCreated(code, pass) {
+  const r = $('#cr-rotor');
+  r.replaceChildren(...[...code].map(() => h('span', { class: 'cell' }, '0')));
+  $('#cr-code').textContent = code;
+  $('#cr-pass').textContent = pass;
+  $('#cr-ok').checked = false;
+  $('#cr-go').disabled = true;
+  $('#cr-copy').onclick = () => copy(t('creds_text', { code, pass }));
+  show('created');
+  rollRotor($$('.cell', r), code, 900);
+  SND.play('unlock');
+}
+async function enterCreated() {
+  const s = pendingSession;
+  pendingSession = null;
+  $('#cr-pass').textContent = '';
+  if (!s) { showLock(); return; }
+  await startSession(s);
+}
+function goLogin() {
+  liCode = rotorInput(5);
+  liPass = passField('', { masked: true, ac: 'current-password' });
+  $('#li-code').replaceChildren(liCode.el);
+  $('#li-pass').replaceChildren(liPass.el);
+  $('#li-err').textContent = '';
+  liCode.onchange = v => { if (v.length === 5) liPass.input.focus(); };
+  liPass.input.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+  show('login');
+  setTimeout(() => liCode.focus(), 120);
+}
+async function doLogin() {
+  const btn = $('#li-go'), err = $('#li-err');
+  if (btn.disabled) return;
+  const code = liCode.value, pass = liPass.value;
+  if (code.length !== 5) { err.textContent = t('err_code5'); shake(liCode.el); return; }
+  if (pass.length < 4) { err.textContent = t('err_pass4'); return; }
+  busy(btn, true, t('unlocking'));
+  err.textContent = '';
+  try { await startSession(await loginFlow(code, pass)); }
+  catch (e) { err.textContent = errText(e); SND.play('err'); }
+  finally { busy(btn, false); }
+}
+function showLock(msg) {
+  const last = store.get().last;
+  if (!last || !last.code) { show('welcome'); return; }
+  $('#lk-hello').textContent = last.name ? t('hello', { n: last.name }) : '';
+  $('#lk-rotor').replaceChildren(rotorDisplay(last.code, 'md'));
+  lkPass = passField('', { masked: true, ac: 'current-password' });
+  $('#lk-pass').replaceChildren(lkPass.el);
+  lkPass.input.addEventListener('keydown', e => { if (e.key === 'Enter') doUnlock(); });
+  $('#lk-err').textContent = msg || '';
+  show('lock');
+  if (!isTouch()) setTimeout(() => lkPass.input.focus(), 120);
+}
+async function doUnlock() {
+  const btn = $('#lk-go'), err = $('#lk-err');
+  if (btn.disabled) return;
+  const last = store.get().last || {}, pass = lkPass.value;
+  if (pass.length < 4) { err.textContent = t('err_pass4'); return; }
+  busy(btn, true, t('unlocking'));
+  err.textContent = '';
+  try { await startSession(await loginFlow(last.code, pass)); }
+  catch (e) { err.textContent = errText(e); shake($('#v-lock .lock-ic')); SND.play('err'); }
+  finally { busy(btn, false); }
+}
+
+/* ─── anti-filtraciones / anti-leak ─── */
+// Marca de agua con TU código y la hora: si alguien hace captura, se sabe quién fue.
+function setWatermark() {
+  if (!S.me) return;
+  const d = new Date();
+  const label = S.me.code + ' · ' + d.toLocaleDateString(locale(), { day: '2-digit', month: '2-digit' }) + ' ' + fmtTime(d.getTime());
+  const mk = a => 'url("data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="250" height="150"><text x="125" y="80" text-anchor="middle" transform="rotate(-24 125 75)" font-family="monospace" font-size="14" font-weight="700" fill="rgb(150,150,150)" fill-opacity="' + a + '">' + xml(label) + '</text></svg>') + '")';
+  document.documentElement.style.setProperty('--wm', mk(0.11));
+  document.documentElement.style.setProperty('--wm2', mk(0.18));
+}
+function shield(on) { document.body.classList.toggle('shielded', !!on && !!S.token); }
+let hiddenAt = 0, shotAt = 0;
+function onVisibility() {
+  if (document.visibilityState === 'hidden') {
+    hiddenAt = Date.now();
+    shield(true);
+    closeViewer();
+    if (S.token && prefs.autolock === 0) lock();
+  } else {
+    if (S.token && hiddenAt && prefs.autolock > 0 && Date.now() - hiddenAt >= prefs.autolock * 1000) lock();
+    hiddenAt = 0;
+    setTimeout(() => { if (document.visibilityState === 'visible' && document.hasFocus()) shield(false); }, 150);
+    if (S.token) { syncNow(); const r = S.rooms.get(S.current); if (r) markRead(r); }
+  }
+}
+function screenshotTaken() {
+  shield(true);
+  setTimeout(() => shield(!document.hasFocus()), 1500);
+  const now = Date.now();
+  if (S.current && now - shotAt > 3000) { shotAt = now; api('POST', '/api/alert', { room: S.current }).catch(() => {}); }
+}
+function protect() {
+  const guarded = n => { const el = n && (n.nodeType === 1 ? n : n.parentElement); return !!(el && el.closest && el.closest('.msgs, #viewer')); };
+  const block = e => { if (guarded(e.target)) e.preventDefault(); };
+  ['contextmenu', 'selectstart', 'dragstart'].forEach(ev => document.addEventListener(ev, block));
+  ['copy', 'cut'].forEach(ev => document.addEventListener(ev, e => {
+    const s = getSelection();
+    if (guarded(e.target) || (s && s.anchorNode && guarded(s.anchorNode))) e.preventDefault();
+  }));
+  document.addEventListener('keydown', e => {
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'p' || e.key === 'P') && S.token) e.preventDefault();
+    if (e.key === 'Escape') {
+      if ($('#viewer').classList.contains('on')) closeViewer();
+      else if (Sheet.isOpen()) Sheet.close();
+      else if (S.current && isMobile()) closeChat();
+    }
+  });
+  document.addEventListener('keyup', e => { if (e.key === 'PrintScreen' && S.token) screenshotTaken(); });
+  document.addEventListener('visibilitychange', onVisibility);
+  addEventListener('blur', () => shield(true));
+  addEventListener('focus', () => { if (document.visibilityState === 'visible') shield(false); });
+  addEventListener('pagehide', () => shield(true));
+}
+// Botón de pánico: borra todo lo local y sale a una página neutral.
+function panic() {
+  Nav.off = true; // a pending history.back() must not cancel the exit
+  clearTimeout(Nav.t);
+  const tok = S.token;
+  if (tok) try { fetch(SERVER + '/api/logout', { method: 'POST', headers: { Authorization: 'Bearer ' + tok }, keepalive: true }).catch(() => {}); } catch { /* */ }
+  try { wipeSession(); } catch { /* */ }
+  store.wipe();
+  $('#app').replaceChildren();
+  location.replace('https://www.google.com/');
+}
+
+/* ─── arranque / boot ─── */
+function setLang(l) {
+  LANG = l;
+  prefs.lang = l;
+  savePrefs();
+  applyI18n();
+  setOnce(S.once);
+  const last = store.get().last;
+  $('#lk-hello').textContent = last && last.name ? t('hello', { n: last.name }) : '';
+  if (S.token) { setWatermark(); renderList(); if (S.current) { renderChatHeader(); renderMessages(); } }
+}
+function makeManifest() {
+  try {
+    const iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="110" fill="#0f1013"/><g transform="translate(64 70) scale(6)">' + LOGO_PATHS + '</g></svg>';
+    const base = location.href.split('#')[0].split('?')[0];
+    const m = {
+      name: 'Cifra', short_name: 'Cifra', description: t('tagline'), start_url: base, scope: new URL('./', base).href,
+      display: 'standalone', background_color: '#0f1013', theme_color: '#0f1013',
+      icons: [{ src: 'data:image/svg+xml,' + encodeURIComponent(iconSvg), sizes: 'any', type: 'image/svg+xml', purpose: 'any' }],
+    };
+    document.head.append(h('link', { rel: 'manifest', href: 'data:application/manifest+json,' + encodeURIComponent(JSON.stringify(m)) }));
+  } catch { /* */ }
+}
+function bindUI() {
+  $$('[data-logo]').forEach(el => { el.innerHTML = LOGO; });
+  $$('[data-icon]').forEach(el => el.replaceChildren(icon(el.dataset.icon, el.dataset.size)));
+  $$('.lang-seg button').forEach(b => b.addEventListener('click', () => setLang(b.dataset.lang)));
+  $$('[data-back]').forEach(b => b.addEventListener('click', () => show('welcome')));
+  $('#go-signup').onclick = goSignup;
+  $('#go-login').onclick = goLogin;
+  $('#su-go').onclick = doSignup;
+  $('#su-name').addEventListener('keydown', e => { if (e.key === 'Enter' && suPass) suPass.input.focus(); });
+  $('#cr-ok').onchange = e => { $('#cr-go').disabled = !e.target.checked; };
+  $('#cr-go').onclick = enterCreated;
+  $('#li-go').onclick = doLogin;
+  $('#li-new').onclick = goSignup;
+  $('#lk-go').onclick = doUnlock;
+  $('#lk-other').onclick = () => { store.set({ last: null }); show('welcome'); };
+  $('#my-code').onclick = () => { if (S.me) share(t('my_code_text', { code: S.me.code })); };
+  $('#btn-lock').onclick = () => lock();
+  $('#btn-settings').onclick = () => sheetSettings();
+  $('#fab').onclick = () => sheetNew();
+  $('#chat-back').onclick = () => closeChat();
+  $('#chat-id').onclick = $('#chat-info').onclick = () => { const r = S.rooms.get(S.current); if (r) sheetInfo(r); };
+  $('#once-btn').onclick = () => { setOnce(!S.once); if (S.once) toast(t('once_on_toast')); };
+  $('#send-btn').addEventListener('mousedown', e => e.preventDefault()); // keep the keyboard open
+  $('#send-btn').onclick = sendMessage;
+  const ta = $('#composer-input');
+  ta.addEventListener('input', () => autoGrow(ta));
+  ta.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && !isTouch()) { e.preventDefault(); sendMessage(); } });
+  $('#sheet .sheet-bg').onclick = () => Sheet.close();
+  $('#viewer-close').onclick = closeViewer;
+  $('#shield').addEventListener('pointerdown', () => { if (document.visibilityState === 'visible') shield(false); });
+}
+async function checkServer() {
+  const w = $('#srv-warn');
+  try { const r = await api('GET', '/api/health'); S.realtime = !!r.realtime; w.hidden = true; }
+  catch (e) { w.hidden = false; w.textContent = '⚠️ ' + errText(e) + (SERVER ? ' (' + SERVER + ')' : ''); }
+}
+function boot() {
+  if (!window.crypto || !crypto.subtle) {
+    document.body.textContent = t('err_crypto');
+    document.body.style.cssText = 'padding:30px;font:16px system-ui;color:#eee;background:#0f1013';
+    return;
+  }
+  bindUI();
+  applyI18n();
+  protect();
+  if (/^https?:$/.test(location.protocol)) makeManifest();
+  setInterval(tickExpiry, 15000);
+  setInterval(() => { if (S.token) setWatermark(); }, 60000);
+  const last = store.get().last;
+  if (last && last.code) showLock(); else show('welcome');
+  checkServer();
+}
+boot();
+</script>
+</body>
+</html>

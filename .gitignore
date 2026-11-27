@@ -1,0 +1,4 @@
+# secretos locales / local secrets (PEPPER)
+.dev.vars
+.wrangler/
+node_modules/

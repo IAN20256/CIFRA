@@ -1,0 +1,27 @@
+name = "cifra"
+main = "worker.js"
+compatibility_date = "2025-09-01"
+
+# La app (public/index.html) se sirve desde el mismo Worker.
+# The app (public/index.html) is served by the same Worker.
+[assets]
+directory = "./public"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "cifra-db"
+database_id = "PEGA-AQUI-EL-ID-DE-TU-D1"   # npx wrangler d1 create cifra-db
+
+# Tiempo real (WebSockets). Funciona en el plan gratis.
+# Real-time (WebSockets). Works on the free plan.
+[[durable_objects.bindings]]
+name = "HUB"
+class_name = "Hub"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Hub"]
+
+# Limpieza: mensajes temporales vencidos, sesiones viejas, grupos vacíos.
+[triggers]
+crons = ["*/15 * * * *"]
